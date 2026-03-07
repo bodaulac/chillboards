@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use App\Services\FlashshipService;
 use App\Services\PrintwayService;
 
@@ -12,25 +13,65 @@ use App\Services\FJPODService;
 
 class OrderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $orders = Order::orderBy('order_date', 'desc')->paginate(50);
-        
-        $mapped = collect($orders->items())->map(function($order) {
+        $query = Order::query();
+
+        // Filter by status
+        if ($status = $request->get('status')) {
+            $query->whereRaw('LOWER(status) = ?', [strtolower($status)]);
+        }
+
+        // Filter by platform
+        if ($platform = $request->get('platform')) {
+            $query->where('platform', $platform);
+        }
+
+        // Filter by seller_code
+        if ($seller = $request->get('seller_code')) {
+            $query->where('seller_code', $seller);
+        }
+
+        // Filter by store_id
+        if ($storeId = $request->get('store_id')) {
+            $query->where('store_id', $storeId);
+        }
+
+        // Filter by date range
+        if ($request->get('startDate') && $request->get('endDate')) {
+            $query->whereBetween('order_date', [
+                Carbon::parse($request->get('startDate'))->startOfDay(),
+                Carbon::parse($request->get('endDate'))->endOfDay(),
+            ]);
+        }
+
+        // Search by order_id or product name
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('order_id', 'like', "%{$search}%")
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(product_details, '$.name')) LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(product_details, '$.sku')) LIKE ?", ["%{$search}%"]);
+            });
+        }
+
+        $perPage = min((int) $request->get('per_page', 50), 200);
+        $orders = $query->orderBy('order_date', 'desc')->paginate($perPage);
+
+        $mapped = collect($orders->items())->map(function ($order) {
             return [
-                'id' => $order->id,
-                'orderID' => $order->order_id,
-                'Status' => $order->status,
-                'Date' => $order->order_date ? $order->order_date->toIso8601String() : ($order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String()),
-                'ProductName' => $order->product_details['name'] ?? 'Unnamed Product',
-                'Quantity' => $order->product_details['quantity'] ?? 1,
-                'SKU' => $order->product_details['sku'] ?? 'N/A',
-                'Platform' => $order->platform,
-                'MOCKUPURL' => $order->product_details['mockup_url'] ?? null,
-                'platform' => $order->platform,
-                'storeId' => $order->store_id,
-                'Total' => $order->financials['total_price'] ?? ($order->product_details['price'] ?? '0.00'),
-                'PartnerOrderID' => $order->store_id // Fallback for legacy frontend until JS is updated
+                'id'          => $order->id,
+                'orderID'     => $order->order_id,
+                'status'      => $order->status,
+                'date'        => $order->order_date?->toIso8601String() ?? $order->created_at?->toIso8601String() ?? now()->toIso8601String(),
+                'productName' => $order->product_details['name'] ?? 'Unnamed Product',
+                'quantity'    => (int) ($order->product_details['quantity'] ?? 1),
+                'sku'         => $order->product_details['sku'] ?? 'N/A',
+                'platform'    => $order->platform,
+                'mockupUrl'   => $order->product_details['mockup_url'] ?? null,
+                'storeId'     => $order->store_id,
+                'sellerCode'  => $order->seller_code,
+                'total'       => (float) ($order->financials['total_price'] ?? $order->product_details['price'] ?? 0),
+                'fulfillment' => $order->fulfillment,
             ];
         });
 
@@ -39,8 +80,9 @@ class OrderController extends Controller
             'data' => $mapped,
             'meta' => [
                 'current_page' => $orders->currentPage(),
-                'last_page' => $orders->lastPage(),
-                'total' => $orders->total()
+                'last_page'    => $orders->lastPage(),
+                'per_page'     => $orders->perPage(),
+                'total'        => $orders->total(),
             ]
         ]);
     }
