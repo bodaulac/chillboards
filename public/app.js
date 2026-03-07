@@ -90,7 +90,7 @@ function switchTab(tabName) {
     // Data Loading
     switch (tabName) {
         case 'dashboard':
-            loadStatistics();
+            loadDashboardAnalytics();
             loadNews();
             loadMiniTrends();
             loadRecentOrders();
@@ -413,18 +413,98 @@ function loadWikiContent(topic) {
 }
 
 // ===== DASHBOARD DATA =====
-async function loadStatistics() {
+let currentPeriod = 'today';
+const periodLabels = {
+    today: 'Today', yesterday: 'Yesterday', last7Days: 'Last 7 Days',
+    thisMonth: 'This Month', lastMonth: 'Last Month'
+};
+
+function changePeriod(period) {
+    currentPeriod = period;
+    document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+    const btn = document.getElementById(`period-${period}`);
+    if (btn) btn.classList.add('active');
+    loadDashboardAnalytics();
+}
+
+async function loadDashboardAnalytics() {
     try {
-        const response = await fetch(`${API_BASE}/statistics`, { headers: getAuthHeaders() });
+        const response = await fetch(`${API_BASE}/analytics/dashboard?period=${currentPeriod}`, { headers: getAuthHeaders() });
         const data = await response.json();
-        if (data.success && data.data) {
-            document.getElementById('stat-pending').textContent = data.data.pending || 0;
-            document.getElementById('stat-designing').textContent = data.data.designing || 0;
-            document.getElementById('stat-review').textContent = data.data.review || 0;
-            document.getElementById('stat-production').textContent = data.data.production || 0;
-            document.getElementById('stat-shipped').textContent = data.data.shipped || 0;
+        if (!data.success || !data.data) return;
+
+        const d = data.data;
+        const ps = d.periodStats || {};
+        const label = periodLabels[currentPeriod] || currentPeriod;
+
+        // Date range
+        const rangeEl = document.getElementById('dashboard-date-range');
+        if (rangeEl && d.dateRange) {
+            rangeEl.textContent = `${d.dateRange.start} - ${d.dateRange.end}`;
         }
-    } catch (e) { console.error('Stats error', e); }
+
+        // Financial summary
+        document.getElementById('stat-revenue').textContent = '$' + (ps.totalRevenue || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('stat-profit').textContent = '$' + (ps.totalProfit || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('stat-avg-order').textContent = '$' + (ps.avgOrderValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('stat-margin').textContent = (ps.profitMargin || 0).toFixed(1) + '%';
+        document.getElementById('period-orders-badge').textContent = (ps.totalOrders || 0) + ' orders';
+
+        // Order status counts (all-time)
+        const status = d.ordersByStatus || {};
+        document.getElementById('stat-pending').textContent = status.pending || 0;
+        document.getElementById('stat-designing').textContent = status.designing || 0;
+        document.getElementById('stat-review').textContent = status.review || 0;
+        document.getElementById('stat-production').textContent = status.production || 0;
+        document.getElementById('stat-shipped').textContent = (status.shipped || 0) + (status.delivered || 0);
+        document.getElementById('stat-total').textContent = status.total || 0;
+
+        // Seller breakdown
+        const sellerLabel = document.getElementById('seller-period-label');
+        if (sellerLabel) sellerLabel.textContent = label;
+        const sellerTbody = document.getElementById('seller-breakdown-tbody');
+        const sellers = d.sellerBreakdown || [];
+        if (sellers.length === 0) {
+            sellerTbody.innerHTML = '<tr><td colspan="5" class="px-5 py-6 text-center text-slate-400">No data for this period</td></tr>';
+        } else {
+            sellerTbody.innerHTML = sellers.map(s => `
+                <tr class="hover:bg-slate-50 transition-colors border-t border-slate-100">
+                    <td class="px-5 py-3">
+                        <span class="font-semibold text-slate-900">${s.sellerName || s.sellerCode}</span>
+                        ${s.sellerName !== s.sellerCode ? `<span class="text-xs text-slate-400 ml-1">(${s.sellerCode})</span>` : ''}
+                    </td>
+                    <td class="px-5 py-3 text-right font-medium text-slate-700">${s.totalOrders}</td>
+                    <td class="px-5 py-3 text-right font-semibold text-emerald-600">$${s.totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="px-5 py-3 text-right font-medium ${s.totalProfit > 0 ? 'text-blue-600' : 'text-slate-400'}">$${s.totalProfit.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="px-5 py-3 text-right text-slate-500">$${s.avgOrderValue.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Top products
+        const tpLabel = document.getElementById('top-products-period-label');
+        if (tpLabel) tpLabel.textContent = label;
+        const tpTbody = document.getElementById('top-products-tbody');
+        const products = d.topProducts || [];
+        if (products.length === 0) {
+            tpTbody.innerHTML = '<tr><td colspan="4" class="px-5 py-6 text-center text-slate-400">No products for this period</td></tr>';
+        } else {
+            tpTbody.innerHTML = products.map((p, i) => `
+                <tr class="hover:bg-slate-50 transition-colors border-t border-slate-100">
+                    <td class="px-5 py-3 text-slate-400 font-mono text-xs">${i + 1}</td>
+                    <td class="px-5 py-3">
+                        <div class="max-w-[250px]">
+                            <p class="font-medium text-slate-900 truncate" title="${p.productName}">${p.productName}</p>
+                            <p class="text-xs text-slate-400 font-mono">${p.baseSKU} &middot; ${p.sellerCode}</p>
+                        </div>
+                    </td>
+                    <td class="px-5 py-3 text-right font-medium text-slate-700">${p.totalOrders} <span class="text-xs text-slate-400">(${p.totalQuantity || p.totalOrders} pcs)</span></td>
+                    <td class="px-5 py-3 text-right font-semibold text-emerald-600">$${p.totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('');
+        }
+
+    } catch (e) { console.error('Dashboard analytics error', e); }
 }
 
 async function loadNews() {
@@ -475,39 +555,36 @@ async function loadRecentOrders() {
     const tbody = document.getElementById('dashboard-orders-tbody');
     if (!tbody) return;
     try {
-        const response = await fetch(`${API_BASE}/orders?limit=5`, { headers: getAuthHeaders() });
+        const response = await fetch(`${API_BASE}/orders?per_page=8`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success && data.data) {
             tbody.innerHTML = data.data.map(order => {
-                const status = (order.Status || 'PENDING').toUpperCase();
-                const img = order.MOCKUPURL || 'https://via.placeholder.com/80';
+                const status = (order.status || 'PENDING').toUpperCase();
                 return `
-                    <tr class="group border-t border-slate-800/50">
-                        <td class="px-6 py-4 font-mono text-sm text-vibrant-primary">#${order.orderID || order.id}</td>
-                        <td class="px-6 py-4">
-                            <div class="flex items-center gap-3">
-                                <img src="${img}" class="w-8 h-8 rounded object-cover">
-                                <div class="max-w-[150px] truncate">
-                                    <p class="text-sm font-medium text-white truncate">${order.ProductName || 'Unnamed Product'}</p>
-                                </div>
+                    <tr class="group border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td class="px-5 py-3 font-mono text-sm text-vibrant-primary">#${order.orderID || order.id}</td>
+                        <td class="px-5 py-3">
+                            <div class="max-w-[200px]">
+                                <p class="text-sm font-medium text-slate-900 truncate">${order.productName || 'Unnamed Product'}</p>
+                                <p class="text-xs text-slate-400">${order.platform || 'Walmart'}</p>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-slate-300">${order.SKU || 'N/A'}</td>
-                        <td class="px-6 py-4 text-xs text-slate-500 font-medium uppercase">${order.Platform || 'Walmart'}</td>
-                        <td class="px-6 py-4">
+                        <td class="px-5 py-3 text-xs text-slate-500 font-mono">${order.sku || 'N/A'}</td>
+                        <td class="px-5 py-3 text-right font-semibold text-slate-900">$${(order.total || 0).toFixed(2)}</td>
+                        <td class="px-5 py-3">
                             <span class="stage-badge stage-${status}">${status}</span>
                         </td>
-                        <td class="px-6 py-4 text-right">
+                        <td class="px-5 py-3 text-right">
                             <button onclick="viewOrder(${order.id})" class="p-2 text-slate-400 hover:text-vibrant-primary transition-colors">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </td>
                     </tr>
                 `;
-            }).join('') || '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">No orders found.</td></tr>';
+            }).join('') || '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No orders found.</td></tr>';
         }
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-red-400">Error loading recent orders.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="px-5 py-8 text-center text-red-400">Error loading recent orders.</td></tr>';
     }
 }
 
@@ -681,36 +758,28 @@ async function loadOrders() {
 }
 
 function renderOrderRow(order) {
-    const status = (order.Status || 'PENDING').toUpperCase();
-    const payment = (order.PaymentStatus || order.payment || 'SUCCESS').toUpperCase();
+    const status = (order.status || order.Status || 'PENDING').toUpperCase();
     const isPending = status === 'PENDING';
-
-    // Fallback for customer info
-    const customerName = order.customer_name || 'Guest User';
-    const customerAddr = order.customer_address || 'No address provided';
 
     return `
         <tr class="group hover:bg-slate-50 transition-all">
             <td>
-                <input type="checkbox" value="${order.id}" onchange="onOrderSelectChange()" 
+                <input type="checkbox" value="${order.id}" onchange="onOrderSelectChange()"
                     class="order-checkbox rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500">
             </td>
             <td>
                 <a href="#" onclick="viewOrder(${order.id}); return false;" class="table-link">#${order.orderID || order.id}</a>
             </td>
-            <td class="text-slate-500 font-mono text-xs">${order.storeId || order.PartnerOrderID || '—'}</td>
+            <td class="text-slate-500 font-mono text-xs">${order.storeId || '—'}</td>
             <td>
                 <div class="col-multi-line">
-                    <span class="col-title">${customerName}</span>
-                    <span class="col-subtitle truncate max-w-[200px]" title="${customerAddr}">${customerAddr}</span>
+                    <span class="col-title truncate max-w-[200px]" title="${order.productName || ''}">${order.productName || 'Unnamed Product'}</span>
+                    <span class="col-subtitle text-xs">${order.platform || 'Walmart'} &middot; ${order.sellerCode || '—'}</span>
                 </div>
             </td>
-            <td class="text-slate-600 text-sm font-medium">${order.ShipmentMethod || 'Standard'}</td>
-            <td class="text-slate-900 font-semibold">${order.Quantity || 1}</td>
-            <td class="text-slate-900 font-bold">$${order.Total || '0.00'}</td>
-            <td>
-                <span class="payment-badge payment-${payment}">${payment}</span>
-            </td>
+            <td class="text-slate-500 font-mono text-xs">${order.sku || 'N/A'}</td>
+            <td class="text-slate-900 font-semibold text-center">${order.quantity || 1}</td>
+            <td class="text-slate-900 font-bold">$${(order.total || 0).toFixed(2)}</td>
             <td>
                 <span class="stage-badge stage-${status}">${status}</span>
             </td>
