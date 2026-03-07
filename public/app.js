@@ -745,21 +745,97 @@ async function deleteProduct(id) {
 }
 
 // ===== ORDERS =====
-async function loadOrders() {
+let orderSearchTimer = null;
+let orderCurrentPage = 1;
+let knownSellerCodes = new Set();
+
+function debounceOrderSearch() {
+    clearTimeout(orderSearchTimer);
+    orderSearchTimer = setTimeout(() => loadOrders(1), 400);
+}
+
+async function loadOrders(page) {
+    if (page) orderCurrentPage = page;
     const tbody = document.getElementById('orders-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading orders...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading orders...</td></tr>';
+
+    const params = new URLSearchParams();
+    params.set('page', orderCurrentPage);
+    params.set('per_page', 30);
+
+    const status = document.getElementById('order-status-filter')?.value;
+    if (status) params.set('status', status);
+
+    const seller = document.getElementById('order-seller-filter')?.value;
+    if (seller) params.set('seller_code', seller);
+
+    const search = document.getElementById('order-search')?.value?.trim();
+    if (search) params.set('search', search);
+
+    const startDate = document.getElementById('order-start-date')?.value;
+    const endDate = document.getElementById('order-end-date')?.value;
+    if (startDate && endDate) {
+        params.set('startDate', startDate);
+        params.set('endDate', endDate);
+    }
+
     try {
-        const response = await fetch(`${API_BASE}/orders`, { headers: getAuthHeaders() });
+        const response = await fetch(`${API_BASE}/orders?${params}`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success && data.data) {
-            tbody.innerHTML = data.data.map(order => renderOrderRow(order)).join('');
+            if (data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="py-10 text-center text-slate-400">No orders found.</td></tr>';
+            } else {
+                tbody.innerHTML = data.data.map(order => renderOrderRow(order)).join('');
+                data.data.forEach(o => { if (o.sellerCode) knownSellerCodes.add(o.sellerCode); });
+                populateSellerFilter();
+            }
+
+            const label = document.getElementById('orders-count-label');
+            if (label && data.meta) label.textContent = `${data.meta.total} orders`;
+
+            if (data.meta) renderOrdersPagination(data.meta);
         }
-    } catch (e) { tbody.innerHTML = 'Error loading orders.'; }
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" class="py-10 text-center text-red-400">Error loading orders.</td></tr>';
+    }
+}
+
+function populateSellerFilter() {
+    const sel = document.getElementById('order-seller-filter');
+    if (!sel) return;
+    const current = sel.value;
+    const codes = Array.from(knownSellerCodes).sort();
+    if (sel.options.length - 1 >= codes.length) return;
+    sel.innerHTML = '<option value="">All Sellers</option>' +
+        codes.map(c => `<option value="${c}" ${c === current ? 'selected' : ''}>${c}</option>`).join('');
+}
+
+function renderOrdersPagination(meta) {
+    const container = document.getElementById('orders-pagination');
+    if (!container) return;
+    const { current_page, last_page, total } = meta;
+    if (last_page <= 1) { container.innerHTML = ''; return; }
+
+    let pages = [];
+    for (let i = Math.max(1, current_page - 2); i <= Math.min(last_page, current_page + 2); i++) pages.push(i);
+
+    container.innerHTML = `
+        <div class="flex items-center gap-1">
+            <button onclick="loadOrders(1)" class="px-3 py-1.5 rounded text-xs font-medium ${current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100'}" ${current_page === 1 ? 'disabled' : ''}><i class="fas fa-angle-double-left"></i></button>
+            <button onclick="loadOrders(${current_page - 1})" class="px-3 py-1.5 rounded text-xs font-medium ${current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100'}" ${current_page === 1 ? 'disabled' : ''}><i class="fas fa-angle-left"></i></button>
+            ${pages.map(p => `<button onclick="loadOrders(${p})" class="px-3 py-1.5 rounded text-xs font-medium ${p === current_page ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}">${p}</button>`).join('')}
+            <button onclick="loadOrders(${current_page + 1})" class="px-3 py-1.5 rounded text-xs font-medium ${current_page === last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100'}" ${current_page === last_page ? 'disabled' : ''}><i class="fas fa-angle-right"></i></button>
+            <button onclick="loadOrders(${last_page})" class="px-3 py-1.5 rounded text-xs font-medium ${current_page === last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100'}" ${current_page === last_page ? 'disabled' : ''}><i class="fas fa-angle-double-right"></i></button>
+        </div>
+        <span class="text-xs text-slate-400">Page ${current_page} of ${last_page} (${total} total)</span>
+    `;
 }
 
 function renderOrderRow(order) {
-    const status = (order.status || order.Status || 'PENDING').toUpperCase();
+    const status = (order.status || 'PENDING').toUpperCase();
     const isPending = status === 'PENDING';
+    const date = order.date ? new Date(order.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
 
     return `
         <tr class="group hover:bg-slate-50 transition-all">
@@ -769,11 +845,12 @@ function renderOrderRow(order) {
             </td>
             <td>
                 <a href="#" onclick="viewOrder(${order.id}); return false;" class="table-link">#${order.orderID || order.id}</a>
+                <div class="text-[10px] text-slate-400">${order.storeId || ''}</div>
             </td>
-            <td class="text-slate-500 font-mono text-xs">${order.storeId || '—'}</td>
+            <td class="text-slate-500 text-xs">${date}</td>
             <td>
-                <div class="col-multi-line">
-                    <span class="col-title truncate max-w-[200px]" title="${order.productName || ''}">${order.productName || 'Unnamed Product'}</span>
+                <div class="col-multi-line max-w-[220px]">
+                    <span class="col-title truncate" title="${order.productName || ''}">${order.productName || 'Unnamed Product'}</span>
                     <span class="col-subtitle text-xs">${order.platform || 'Walmart'} &middot; ${order.sellerCode || '—'}</span>
                 </div>
             </td>

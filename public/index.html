@@ -399,33 +399,43 @@
 
                 <!-- Orders Tab -->
                 <div id="orders-tab" class="tab-content space-y-6">
-                    <!-- Advanced Filter Toolbar -->
+                    <!-- Filter Toolbar -->
                     <div class="glass-card p-4 flex flex-wrap items-center justify-between gap-4">
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-3 flex-wrap">
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                                    <i class="fas fa-calendar-alt text-xs"></i>
+                                    <i class="fas fa-search text-xs"></i>
                                 </span>
-                                <input type="text" id="order-date-range" class="glass-input-sm pl-9 w-48"
-                                    placeholder="Date Range">
+                                <input type="text" id="order-search" class="glass-input-sm pl-9 w-64"
+                                    placeholder="Search order ID, product, SKU..."
+                                    oninput="debounceOrderSearch()">
                             </div>
-                            <select class="glass-input-sm min-w-[140px]" id="order-status-filter">
+                            <select class="glass-input-sm min-w-[130px]" id="order-status-filter" onchange="loadOrders(1)">
                                 <option value="">All Status</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="CONFIRMED">Confirmed</option>
-                                <option value="PRODUCTION">Producing</option>
-                                <option value="SHIPPED">Shipped</option>
+                                <option value="pending">Pending</option>
+                                <option value="designing">Designing</option>
+                                <option value="review">Review</option>
+                                <option value="production">Production</option>
+                                <option value="shipped">Shipped</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="refunded">Refunded</option>
                             </select>
-                            <input type="text" id="order-search" class="glass-input-sm w-64"
-                                placeholder="Order Code / Store ID / Customer">
+                            <select class="glass-input-sm min-w-[120px]" id="order-seller-filter" onchange="loadOrders(1)">
+                                <option value="">All Sellers</option>
+                            </select>
+                            <input type="date" id="order-start-date" class="glass-input-sm w-[140px]" onchange="loadOrders(1)">
+                            <span class="text-slate-400 text-xs">to</span>
+                            <input type="date" id="order-end-date" class="glass-input-sm w-[140px]" onchange="loadOrders(1)">
                         </div>
 
                         <div class="flex items-center gap-3">
+                            <span class="text-sm text-slate-400" id="orders-count-label"></span>
                             <button onclick="syncOrders()" class="btn-secondary-sm px-4 py-2 flex items-center gap-2">
                                 <i class="fas fa-sync text-indigo-500"></i>
                                 <span>Sync Walmart</span>
                             </button>
-                            <button onclick="refreshOrders()"
+                            <button onclick="loadOrders(1)"
                                 class="btn-secondary-sm px-4 py-2 flex items-center gap-2">
                                 <i class="fas fa-redo text-slate-400"></i>
                                 <span>Refresh</span>
@@ -448,13 +458,12 @@
                                                 onchange="toggleSelectAllOrders(this)"
                                                 class="rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500">
                                         </th>
-                                        <th>Order Code</th>
-                                        <th>Store ID</th>
-                                        <th>Customer</th>
-                                        <th>Method</th>
-                                        <th>Qty</th>
+                                        <th>Order ID</th>
+                                        <th>Date</th>
+                                        <th>Product</th>
+                                        <th>SKU</th>
+                                        <th class="text-center">Qty</th>
                                         <th>Total</th>
-                                        <th>Payment</th>
                                         <th>Status</th>
                                         <th class="text-right">Actions</th>
                                     </tr>
@@ -464,9 +473,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="p-4 border-t border-slate-100 flex justify-between items-center"
-                            id="orders-pagination">
-                            <!-- pagination -->
+                        <div class="p-4 border-t border-slate-100 flex justify-between items-center" id="orders-pagination">
                         </div>
                     </div>
                 </div>
@@ -1763,7 +1770,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=2.0"></script>
+    <script src="app.js?v=2.1"></script>
 </body>
 
 </html>
