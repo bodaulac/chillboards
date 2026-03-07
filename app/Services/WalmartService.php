@@ -284,6 +284,74 @@ class WalmartService
     }
 
     /**
+     * Map Walmart order/line status to OMS status.
+     *
+     * Walmart statuses: Created, Acknowledged, Shipped, Delivered, Cancelled, Refund
+     * OMS statuses:     pending, designing, review, production, shipped, delivered, cancelled, refunded, returned
+     */
+    protected function mapWalmartStatus(string $walmartStatus): string
+    {
+        return match (strtolower(trim($walmartStatus))) {
+            'created'       => 'PENDING',
+            'acknowledged'  => 'PENDING',
+            'shipped'       => 'SHIPPED',
+            'delivered'     => 'DELIVERED',
+            'cancelled'     => 'CANCELLED',
+            'refund',
+            'refunded'      => 'REFUNDED',
+            default         => 'PENDING',
+        };
+    }
+
+    /**
+     * Extract the most relevant status from a Walmart order line.
+     * Uses line-level orderLineStatuses first, then falls back to order-level orderStatus.
+     */
+    protected function resolveLineStatus(array $line, array $orderItem): string
+    {
+        // Line-level statuses (most accurate per-item)
+        $lineStatuses = $line['orderLineStatuses']['orderLineStatus'] ?? [];
+        if (!empty($lineStatuses)) {
+            // Take the last (most recent) status entry
+            $latest = end($lineStatuses);
+            $rawStatus = $latest['status'] ?? '';
+            if ($rawStatus) {
+                return $this->mapWalmartStatus($rawStatus);
+            }
+        }
+
+        // Fall back to order-level status
+        $orderStatus = $orderItem['orderStatus'] ?? '';
+        if ($orderStatus) {
+            return $this->mapWalmartStatus($orderStatus);
+        }
+
+        return 'PENDING';
+    }
+
+    /**
+     * Extract tracking/fulfillment info from a Walmart order line.
+     */
+    protected function extractFulfillment(array $line): array
+    {
+        $lineStatuses = $line['orderLineStatuses']['orderLineStatus'] ?? [];
+        foreach ($lineStatuses as $ls) {
+            $tracking = $ls['trackingInfo'] ?? null;
+            if ($tracking) {
+                return [
+                    'carrier' => $tracking['carrierName']['carrier'] ?? $tracking['carrier'] ?? '',
+                    'tracking_number' => $tracking['trackingNumber'] ?? '',
+                    'tracking_url' => $tracking['trackingURL'] ?? '',
+                    'ship_date' => isset($tracking['shipDateTime'])
+                        ? date('Y-m-d H:i:s', $tracking['shipDateTime'] / 1000)
+                        : null,
+                ];
+            }
+        }
+        return [];
+    }
+
+    /**
      * Process a single Walmart order
      */
     protected function processOrder(array $item, Store $store): string
@@ -299,9 +367,30 @@ class WalmartService
             $lineId = $line['lineNumber'] ?? '1';
             $uniqueId = "WAL-{$platformOrderId}-{$lineId}";
 
+            // Resolve actual status from Walmart API
+            $status = $this->resolveLineStatus($line, $item);
+
+            // Extract fulfillment/tracking info
+            $fulfillment = $this->extractFulfillment($line);
+
             // Check existence
             $existing = \App\Models\Order::where('order_id', $uniqueId)->first();
-            if ($existing) continue;
+
+            if ($existing) {
+                // Update status & fulfillment if changed
+                $changes = [];
+                if (strtolower($existing->status) !== strtolower($status)) {
+                    $changes['status'] = $status;
+                }
+                if (!empty($fulfillment) && $fulfillment !== ($existing->fulfillment ?? [])) {
+                    $changes['fulfillment'] = $fulfillment;
+                }
+                if (!empty($changes)) {
+                    $existing->update($changes);
+                    $result = ($result === 'created') ? 'created' : 'updated';
+                }
+                continue;
+            }
 
             // Seller Code
             $sellerCode = \App\Helpers\SellerMapper::getSellerCode($sku, $store->store_id);
@@ -314,7 +403,7 @@ class WalmartService
                 'store_id' => $store->store_id,
                 'seller_code' => $sellerCode,
                 'order_date' => isset($item['orderDate']) ? date('Y-m-d H:i:s', $item['orderDate'] / 1000) : now(),
-                'status' => 'PENDING',
+                'status' => $status,
                 'customer_details' => [
                     'name' => trim(($item['shippingInfo']['postalAddress']['name'] ?? '')),
                     'email' => $item['customerEmailId'] ?? '',
@@ -334,7 +423,8 @@ class WalmartService
                 ],
                 'financials' => [
                     'total_price' => $line['charges']['charge'][0]['chargeAmount']['amount'] ?? 0
-                ]
+                ],
+                'fulfillment' => $fulfillment,
             ]);
 
             $result = 'created';
