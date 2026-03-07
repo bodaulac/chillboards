@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChillBoard - Premium Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        },
+                        vibrant: {
+                            primary: '#6366f1',
+                            secondary: '#a855f7',
+                            accent: '#f59e0b',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-[#f9fafb] text-slate-900 font-sans antialiased overflow-hidden h-screen flex relative">
+    <!-- Clean Background Overlay (Optional) -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-20 pointer-events-none bg-[#f9fafb]"></div>
+
+    <!-- Auth Screen -->
+    <div id="login-screen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 transition-opacity duration-500">
+        <div class="glass-card p-10 max-w-md w-full animate-fade-in shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-24 -left-24 w-48 h-48 bg-vibrant-primary opacity-20 blur-3xl"></div>
+            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-vibrant-secondary opacity-20 blur-3xl"></div>
+
+            <div class="text-center mb-8 relative">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 shadow-md mb-6">
+                    <i data-lucide="layout-dashboard" class="text-white w-8 h-8"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">ChillBoard</h1>
+                <p class="text-slate-500 mt-2 font-medium">Internal Administration Dashboard</p>
+            </div>
+
+            <form id="login-form" class="space-y-5 relative">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2 ml-1">Email Address</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                            <i data-lucide="mail" class="w-4 h-4"></i>
+                        </span>
+                        <input type="email" id="login-email" required class="glass-input block w-full pl-10"
+                            placeholder="admin@chillboard.io">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2 ml-1">Password</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                            <i data-lucide="lock" class="w-4 h-4"></i>
+                        </span>
+                        <input type="password" id="login-password" required class="glass-input block w-full pl-10"
+                            placeholder="••••••••">
+                    </div>
+                </div>
+                <button type="submit"
+                    class="w-full btn-gradient py-3.5 rounded-xl font-semibold text-white shadow-xl shadow-vibrant-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                    Launch Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App Screen (Sidebar + Content) -->
+    <div id="dashboard-screen" class="hidden flex w-full h-full relative overflow-hidden">
+
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="w-64 border-r border-slate-200 bg-white flex flex-col z-40 transition-all duration-300">
+            <div class="p-6 flex items-center gap-4 border-b border-slate-100">
+                <div class="avatar">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm">
+                        <i data-lucide="layout-dashboard" class="text-white w-5 h-5"></i>
+                    </div>
+                </div>
+                <div>
+                    <span class="text-lg font-bold text-slate-900 tracking-tight">ChillBoard</span>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dashboard</div>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-4 mt-6 space-y-2">
+                <button onclick="switchTab('dashboard')" class="nav-btn active group" id="nav-dashboard">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </button>
+                <button onclick="switchTab('orders')" class="nav-btn group" id="nav-orders">
+                    <i data-lucide="shopping-cart"></i> <span>Orders</span>
+                </button>
+                <button onclick="switchTab('fulfillment')" class="nav-btn group" id="nav-fulfillment">
+                    <i data-lucide="truck"></i> <span>Fulfillment</span>
+                </button>
+                <button onclick="switchTab('products')" class="nav-btn group" id="nav-products">
+                    <i data-lucide="package"></i> <span>Products</span>
+                </button>
+                <button onclick="switchTab('trends')" class="nav-btn group" id="nav-trends">
+                    <i data-lucide="trending-up"></i> <span>Trends</span>
+                </button>
+                <button onclick="switchTab('sellers')" class="nav-btn group" id="nav-sellers">
+                    <i data-lucide="user-plus"></i> <span>Sellers</span>
+                </button>
+                <button onclick="switchTab('settings')" class="nav-btn group" id="nav-settings">
+                    <i data-lucide="settings"></i> <span>Settings</span>
+                </button>
+                <button onclick="switchTab('teams')" class="nav-btn group" id="nav-teams">
+                    <i data-lucide="users"></i> <span>Teams</span>
+                </button>
+                <button onclick="switchTab('wiki')" class="nav-btn group" id="nav-wiki">
+                    <i data-lucide="help-circle"></i> <span>Wiki & Guides</span>
+                </button>
+            </nav>
+
+            <div class="p-6 border-t border-slate-100">
+                <div
+                    class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-all cursor-pointer group border border-transparent">
+                    <div
+                        class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                        <i data-lucide="user" class="text-slate-500"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 truncate" id="user-name-display">Administrator
+                        </p>
+                        <button onclick="logout()"
+                            class="text-xs font-medium text-slate-400 hover:text-red-600 transition-colors">Sign
+                            Out</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+            <div
+                class="absolute top-0 right-0 w-[500px] h-[500px] bg-vibrant-primary opacity-5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 -z-10">
+            </div>
+
+            <!-- Content Header -->
+            <header
+                class="h-16 flex items-center justify-between px-8 border-b border-slate-200 bg-white sticky top-0 z-30">
+                <div class="flex items-center gap-4">
+                    <i data-lucide="layout" class="text-slate-400 w-5 h-5"></i>
+                    <h2 id="current-tab-title" class="text-xl font-bold text-slate-900 tracking-tight">Dashboard
+                        Overview</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="relative hidden sm:block">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" class="glass-input-sm pl-10 w-64" placeholder="Search everywhere...">
+                    </div>
+                    <button
+                        class="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-8 space-y-8" id="tab-container">
+
+                <!-- Dashboard Tab -->
+                <div id="dashboard-tab" class="tab-content active space-y-8">
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                        <div class="glass-card-stat p-6 group">
+                            <div class="flex justify-between items-start mb-4">
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
+                                    <i class="fas fa-clock text-xl"></i>
+                                </div>
+                                <span
+                                    class="text-xs font-semibold text-blue-500/80 bg-blue-500/10 px-2 py-1 rounded-lg">Wait
+                                    List</span>
+                            </div>
+                            <h3 class="text-slate-500 text-sm font-medium mb-1">Pending Orders</h3>
+                            <p class="text-3xl font-bold text-slate-900 tracking-tight" id="stat-pending">0</p>
+                        </div>
+                        <div class="glass-card-stat p-6 group">
+                            <div class="flex justify-between items-start mb-4">
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
+                                    <i class="fas fa-pencil-alt text-xl"></i>
+                                </div>
+                                <span
+                                    class="text-xs font-semibold text-indigo-500/80 bg-indigo-500/10 px-2 py-1 rounded-lg">Active</span>
+                            </div>
+                            <h3 class="text-slate-500 text-sm font-medium mb-1">Designing</h3>
+                            <p class="text-3xl font-bold text-slate-900 tracking-tight" id="stat-designing">0</p>
+                        </div>
+                        <div class="glass-card-stat p-6 group">
+                            <div class="flex justify-between items-start mb-4">
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
+                                    <i class="fas fa-eye text-xl"></i>
+                                </div>
+                                <span
+                                    class="text-xs font-semibold text-amber-500/80 bg-amber-500/10 px-2 py-1 rounded-lg">Review</span>
+                            </div>
+                            <h3 class="text-slate-500 text-sm font-medium mb-1">Review Required</h3>
+                            <p class="text-3xl font-bold text-slate-900 tracking-tight" id="stat-review">0</p>
+                        </div>
+                        <div class="glass-card-stat p-6 group">
+                            <div class="flex justify-between items-start mb-4">
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
+                                    <i class="fas fa-tools text-xl"></i>
+                                </div>
+                                <span
+                                    class="text-xs font-semibold text-emerald-500/80 bg-emerald-500/10 px-2 py-1 rounded-lg">Real-time</span>
+                            </div>
+                            <h3 class="text-slate-500 text-sm font-medium mb-1">In Production</h3>
+                            <p class="text-3xl font-bold text-slate-900 tracking-tight" id="stat-production">0</p>
+                        </div>
+                        <div class="glass-card-stat p-6 group">
+                            <div class="flex justify-between items-start mb-4">
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-500 group-hover:bg-violet-500 group-hover:text-white transition-all duration-300">
+                                    <i class="fas fa-truck text-xl"></i>
+                                </div>
+                                <span
+                                    class="text-xs font-semibold text-violet-500/80 bg-violet-500/10 px-2 py-1 rounded-lg">History</span>
+                            </div>
+                            <h3 class="text-slate-500 text-sm font-medium mb-1">Total Shipped</h3>
+                            <p class="text-3xl font-bold text-slate-900 tracking-tight" id="stat-shipped">0</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- Recent Activity / News -->
+                        <div class="lg:col-span-2 glass-card p-6 min-h-[400px]">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-semibold text-slate-900">Live Insights & Notifications</h3>
+                                <button onclick="loadNews()" class="text-sm text-vibrant-primary hover:underline"><i
+                                        class="fas fa-sync-alt mr-1"></i> Refresh</button>
+                            </div>
+                            <div id="news-feed" class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div class="flex items-center justify-center h-48 text-slate-500">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i> Connecting to live stream...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mini Trends View -->
+                        <div class="glass-card p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-semibold text-slate-900">Hot Trends</h3>
+                                <i class="fas fa-fire text-amber-500"></i>
+                            </div>
+                            <div id="mini-trends" class="space-y-4">
+                                <!-- trends injected here -->
+                            </div>
+                            <button onclick="switchTab('trends')"
+                                class="w-full mt-6 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm">View
+                                All Trends</button>
+                        </div>
+                    </div>
+
+                    <!-- Recent Orders Full Width -->
+                    <div class="glass-card overflow-hidden">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                            <h3 class="text-lg font-semibold text-slate-900">Recent Orders</h3>
+                            <button onclick="switchTab('orders')"
+                                class="text-vibrant-primary text-sm hover:underline">View All Orders <i
+                                    class="fas fa-arrow-right ml-1"></i></button>
+                        </div>
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                                        <th class="px-6 py-4 font-semibold">Order ID</th>
+                                        <th class="px-6 py-4 font-semibold">Product</th>
+                                        <th class="px-6 py-4 font-semibold">SKU</th>
+                                        <th class="px-6 py-4 font-semibold">Platform</th>
+                                        <th class="px-6 py-4 font-semibold">Status</th>
+                                        <th class="px-6 py-4 font-semibold text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-orders-tbody">
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-10 text-center text-slate-500">
+                                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading latest orders...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Tab -->
+                <div id="orders-tab" class="tab-content space-y-6">
+                    <!-- Advanced Filter Toolbar -->
+                    <div class="glass-card p-4 flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                                    <i class="fas fa-calendar-alt text-xs"></i>
+                                </span>
+                                <input type="text" id="order-date-range" class="glass-input-sm pl-9 w-48"
+                                    placeholder="Date Range">
+                            </div>
+                            <select class="glass-input-sm min-w-[140px]" id="order-status-filter">
+                                <option value="">All Status</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="CONFIRMED">Confirmed</option>
+                                <option value="PRODUCTION">Producing</option>
+                                <option value="SHIPPED">Shipped</option>
+                            </select>
+                            <input type="text" id="order-search" class="glass-input-sm w-64"
+                                placeholder="Order Code / Store ID / Customer">
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <button onclick="syncOrders()" class="btn-secondary-sm px-4 py-2 flex items-center gap-2">
+                                <i class="fas fa-sync text-indigo-500"></i>
+                                <span>Sync Walmart</span>
+                            </button>
+                            <button onclick="refreshOrders()"
+                                class="btn-secondary-sm px-4 py-2 flex items-center gap-2">
+                                <i class="fas fa-redo text-slate-400"></i>
+                                <span>Refresh</span>
+                            </button>
+                            <button onclick="openBulkFulfillmentModal()" id="btn-bulk-fulfill"
+                                class="btn-gradient px-4 py-2 text-sm hidden flex items-center gap-2">
+                                <i class="fas fa-layer-group"></i>
+                                <span>Bulk Fulfill (<span id="selected-count">0</span>)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="glass-card overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse premium-table">
+                                <thead>
+                                    <tr>
+                                        <th class="w-10">
+                                            <input type="checkbox" id="select-all-orders"
+                                                onchange="toggleSelectAllOrders(this)"
+                                                class="rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500">
+                                        </th>
+                                        <th>Order Code</th>
+                                        <th>Store ID</th>
+                                        <th>Customer</th>
+                                        <th>Method</th>
+                                        <th>Qty</th>
+                                        <th>Total</th>
+                                        <th>Payment</th>
+                                        <th>Status</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-tbody" class="divide-y divide-slate-100">
+                                    <!-- rows injected -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 border-t border-slate-100 flex justify-between items-center"
+                            id="orders-pagination">
+                            <!-- pagination -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fulfillment Tab -->
+                <div id="fulfillment-tab" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-2xl font-bold text-slate-900">Fulfillment</h3>
+                            <p class="text-slate-500 text-sm">Monitor order status and sync tracking info</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="syncFlashshipTracking()"
+                                class="btn-primary-sm bg-blue-600 hover:bg-blue-700">
+                                <i class="fas fa-sync mr-2"></i> Sync Flashship
+                            </button>
+                            <button onclick="syncFJPODTracking()"
+                                class="btn-primary-sm bg-emerald-600 hover:bg-emerald-700">
+                                <i class="fas fa-sync mr-2"></i> Sync FJPOD
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Fulfillment Workflow Banner -->
+                    <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 mb-8">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-truck-loading text-indigo-500 mt-1"></i>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                                <div>
+                                    <h4 class="text-xs font-bold text-indigo-900 uppercase mb-1">Fulfillment Workflow
+                                    </h4>
+                                    <p class="text-xs text-indigo-700">Orders move from Pending to Production, then
+                                        Shipped. Tracking info is synced back to sales channels automatically.</p>
+                                </div>
+                                <div class="flex gap-2 items-center justify-end">
+                                    <button onclick="syncPrintwayTracking()"
+                                        class="text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100 hover:bg-purple-100 transition-all">Sync
+                                        Printway</button>
+                                    <button onclick="syncWalmartTracking()"
+                                        class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-all">Push
+                                        to Walmart</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fulfillment Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-1">To Fulfill</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="fulfill-stat-pending">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-1">In Production</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="fulfill-stat-production">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-1">Shipped (Pending Sync)</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="fulfill-stat-shipped">0</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Provider</th>
+                                        <th>Supplier ID</th>
+                                        <th>Tracking</th>
+                                        <th>Status</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fulfillment-tbody" class="divide-y divide-slate-100">
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-10 text-center text-slate-500">
+                                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading fulfillment data...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trends Tab -->
+                <div id="trends-tab" class="tab-content space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6" id="trends-grid">
+                        <!-- trend cards injected -->
+                    </div>
+                </div>
+
+                <!-- Sellers Tab -->
+                <div id="sellers-tab" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-2xl font-bold text-slate-900">Sellers</h3>
+                            <p class="text-slate-500 text-sm">Manage user accounts and team assignments</p>
+                        </div>
+                        <button onclick="openUserModal()"
+                            class="btn-gradient px-4 py-2 rounded-xl text-white font-medium shadow-lg shadow-vibrant-primary/20 hover:scale-[1.02] transition-all bg-indigo-600">
+                            <i class="fas fa-user-plus mr-2"></i> Create Seller
+                        </button>
+                    </div>
+
+                    <!-- Permission Banner -->
+                    <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-8">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-users-cog text-blue-500 mt-1"></i>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                                <div>
+                                    <h4 class="text-xs font-bold text-blue-900 uppercase mb-1">User Management Rules
+                                    </h4>
+                                    <p class="text-xs text-blue-700">Sellers must be assigned to a team to access
+                                        specific stores. Leaders can only manage their own team members.</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-blue-700 mt-5">Deleting a seller will permanently remove
+                                        their access to the system and all assigned stores.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Seller Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Total Sellers</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="seller-stat-total">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Teams Coverage</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="seller-stat-teams-coverage">0%</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Team</th>
+                                        <th>Role</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sellers-tbody">
+                                    <!-- Sellers injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Tab -->
+                <div id="products-tab" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-2xl font-bold text-slate-900">Product Catalog</h3>
+                            <p class="text-slate-500 text-sm">Manage items synced from your sales channels</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="syncWalmartProducts()"
+                                class="btn-gradient px-4 py-2 rounded-xl text-white font-medium shadow-lg shadow-vibrant-primary/20 hover:scale-[1.02] transition-all bg-indigo-600">
+                                <i class="fas fa-sync-alt mr-2"></i> Sync Products
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Catalog Banner -->
+                    <div class="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 mb-8">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-box-open text-emerald-500 mt-1"></i>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                                <div>
+                                    <h4 class="text-xs font-bold text-emerald-900 uppercase mb-1">Product Management
+                                    </h4>
+                                    <p class="text-xs text-emerald-700">Items are automatically imported from integrated
+                                        stores. Map SKUs for accurate fulfillment.</p>
+                                </div>
+                                <div class="flex items-center justify-end">
+                                    <span
+                                        class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 uppercase">Master
+                                        Catalog Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-1">Total Products</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="product-stat-total">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-1">Synced Status</h4>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span class="text-sm font-bold text-slate-700">Operational</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>SKU</th>
+                                        <th>Seller</th>
+                                        <th>Store ID</th>
+                                        <th>Price</th>
+                                        <th>Status</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-tbody" class="divide-y divide-slate-100">
+                                    <!-- rows injected -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 border-t border-slate-800 flex justify-between items-center"
+                            id="products-pagination">
+                            <!-- pagination -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="settings-tab" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-2xl font-bold text-slate-900">Stores</h3>
+                            <p class="text-slate-500 text-sm">Manage sales channels and API integrations</p>
+                        </div>
+                        <button onclick="openStoreModal()"
+                            class="btn-gradient px-4 py-2 rounded-xl text-white font-medium shadow-lg shadow-vibrant-primary/20 hover:scale-[1.02] transition-all bg-indigo-600">
+                            <i class="fas fa-plus mr-2"></i> Add Store
+                        </button>
+                    </div>
+
+                    <!-- Connection Banner -->
+                    <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-8">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-plug text-blue-500 mt-1"></i>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                                <div>
+                                    <h4 class="text-xs font-bold text-blue-900 uppercase mb-1">Store Connectivity</h4>
+                                    <p class="text-xs text-blue-700">Ensure your API credentials (Client ID, Access
+                                        Token) are kept secret and updated regularly.</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-blue-700 mt-5">Active stores will automatically sync orders
+                                        and inventory based on background tasks.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Store Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Total Stores</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="store-stat-total">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Walmart Stores</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="store-stat-walmart">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Shopify Stores</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="store-stat-shopify">0</p>
+                        </div>
+                    </div>
+
+                    <div id="stores-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Stores injected here -->
+                    </div>
+                </div>
+
+                <!-- Teams Tab -->
+                <div id="teams-tab" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-2xl font-bold text-slate-900">Teams</h3>
+                            <p class="text-slate-500 text-sm">Manage all teams, members and store assignments</p>
+                        </div>
+                        <button id="btn-create-team" onclick="openTeamModal()"
+                            class="hidden btn-gradient px-4 py-2 rounded-xl text-white font-medium shadow-lg shadow-vibrant-primary/20 hover:scale-[1.02] transition-all bg-indigo-600">
+                            <i class="fas fa-plus mr-2"></i> Create Team
+                        </button>
+                    </div>
+
+                    <!-- Permission Banner -->
+                    <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-8">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-id-card text-blue-500 mt-1"></i>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                                <div>
+                                    <h4 class="text-xs font-bold text-blue-900 uppercase mb-1">Team Permissions</h4>
+                                    <p class="text-xs text-blue-700">Admin: Create, edit, delete teams. Full management
+                                        of all teams.</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-blue-700 mt-5">Leader: Add/remove members, assign stores for
+                                        their own teams.</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-blue-700 mt-5">Seller: View and process orders for assigned
+                                        stores only.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Team Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Total Teams</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="team-stat-total">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Active Teams</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="team-stat-active">0</p>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h4 class="text-slate-500 text-sm font-medium mb-2">Total Members</h4>
+                            <p class="text-3xl font-bold text-slate-900" id="team-stat-members">0</p>
+                        </div>
+                    </div>
+
+                    <div id="teams-grid" class="space-y-6">
+                        <!-- Teams injected here -->
+                    </div>
+                </div>
+
+                <!-- Wiki Tab -->
+                <div id="wiki-tab" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-900">System Documentation</h3>
+                            <p class="text-slate-500 text-sm">Guides and tutorials for using the OMS.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                        <!-- Sidebar / ToC -->
+                        <div class="lg:col-span-1">
+                            <div class="glass-card p-4 sticky top-24">
+                                <h4 class="text-sm font-semibold text-slate-900 mb-4 uppercase tracking-wider">Contents
+                                </h4>
+                                <nav class="space-y-1">
+                                    <button onclick="loadWikiContent('general')"
+                                        class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">📘
+                                        Tổng quan Hệ thống</button>
+                                    <button onclick="loadWikiContent('sync-guide')"
+                                        class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">🔄
+                                        Team Product Sync</button>
+                                    <button onclick="loadWikiContent('orders')"
+                                        class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">📦
+                                        Quản lý Orders</button>
+                                    <button onclick="loadWikiContent('walmart-sync')"
+                                        class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">🛒
+                                        Đồng bộ Walmart</button>
+                                    <button onclick="loadWikiContent('shopify-sync')"
+                                        class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">🛍️
+                                        Đồng bộ Shopify</button>
+                                    <button onclick="loadWikiContent('team-management')"
+                                        class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">👥
+                                        Quản lý Teams</button>
+                                    <button onclick="loadWikiContent('store-config')"
+                                        class="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">⚙️
+                                        Cấu hình Stores</button>
+                                </nav>
+                            </div>
+                        </div>
+
+                        <!-- Content Area -->
+                        <div class="lg:col-span-3">
+                            <article id="wiki-content" class="glass-card p-8 prose max-w-none">
+                                <div class="text-center py-20 text-slate-500 font-medium italic">Select a guide to view
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Detail View (NEW) -->
+                <div id="order-detail-tab" class="tab-content space-y-6">
+                    <!-- Header -->
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <button onclick="switchTab('orders')" class="btn-icon bg-white" title="Quay lại">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <div>
+                                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                                    Order: <span id="detail-order-id">#ORD-0000</span>
+                                    <span class="text-slate-400 text-sm font-normal" id="detail-partner-id">(Store ID:
+                                        —)</span>
+                                </h1>
+                                <p class="text-slate-500 text-sm" id="detail-order-dates">Created: — | Expect: —</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button class="btn-secondary-sm px-4 py-2" id="btn-prev-order"><i
+                                    class="fas fa-chevron-left"></i> Previous</button>
+                            <button class="btn-secondary-sm px-4 py-2" id="btn-next-order">Next <i
+                                    class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="order-detail-grid">
+                        <!-- Left Column: Product List -->
+                        <div class="space-y-6">
+                            <div class="detail-card">
+                                <div class="detail-card-header">
+                                    <h4><i class="fas fa-box text-indigo-500"></i> Product list</h4>
+                                    <button class="btn-secondary-sm px-3 py-1 text-xs">Edit</button>
+                                </div>
+                                <div class="overflow-x-auto custom-scrollbar">
+                                    <table class="w-full text-left premium-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="w-12">No.</th>
+                                                <th>Product name</th>
+                                                <th>Front Design</th>
+                                                <th>Back Design</th>
+                                                <th>Qty</th>
+                                                <th class="text-right">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="detail-products-tbody">
+                                            <!-- Products injected here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="p-6 bg-slate-50/50 border-t border-slate-100">
+                                    <div class="flex flex-col items-end gap-2 text-sm">
+                                        <div class="flex justify-between w-full max-w-[240px]">
+                                            <span class="text-slate-500">Sub-total:</span>
+                                            <span class="font-semibold text-slate-900" id="detail-subtotal">$0.00</span>
+                                        </div>
+                                        <div class="flex justify-between w-full max-w-[240px]">
+                                            <span class="text-slate-500">Shipping fee:</span>
+                                            <span class="font-semibold text-slate-900"
+                                                id="detail-shipping-fee">$0.00</span>
+                                        </div>
+                                        <div
+                                            class="flex justify-between w-full max-w-[240px] pt-2 border-t border-slate-200">
+                                            <span class="text-slate-900 font-bold">Total:</span>
+                                            <span class="text-indigo-600 font-extrabold text-lg"
+                                                id="detail-total">$0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Fulfillment Controls (ENHANCED) -->
+                            <div class="detail-card">
+                                <div class="detail-card-header">
+                                    <h4><i class="fas fa-truck-loading text-indigo-500"></i> Fulfillment Setup</h4>
+                                </div>
+                                <div class="detail-card-body space-y-6">
+                                    <!-- Supplier Selection -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Supplier</label>
+                                        <select id="detail-supplier-select" class="glass-input w-full"
+                                            onchange="onDetailSupplierChange()">
+                                            <option value="Flashship">Flashship</option>
+                                            <option value="FJPOD">FJPOD</option>
+                                            <option value="Printway">Printway</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Product Search & Variant Selection -->
+                                    <div class="space-y-3">
+                                        <label class="block text-sm font-medium text-slate-700">Search Product
+                                            Type</label>
+                                        <div class="flex gap-2">
+                                            <input type="text" id="detail-product-search" class="glass-input flex-1"
+                                                placeholder="e.g., G5000, 01800">
+                                            <button onclick="filterDetailVariants()" class="btn-primary-sm px-4">
+                                                <i class="fas fa-filter mr-1"></i> Filter
+                                            </button>
+                                        </div>
+                                        <div id="detail-variant-container">
+                                            <label class="block text-xs text-slate-500 mb-1.5">Product Variant</label>
+                                            <select id="detail-variant-select" class="glass-input w-full">
+                                                <!-- Variants loaded dynamically -->
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Design & Label Information -->
+                                    <div class="border-t border-slate-200 pt-6">
+                                        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+                                            Design & Label Information</h5>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-xs text-slate-600 mb-1.5">Design URL *</label>
+                                                <div class="flex gap-2">
+                                                    <input type="url" id="detail-design-url" class="glass-input flex-1"
+                                                        placeholder="https://drive.google.com/...">
+                                                    <button onclick="uploadDesignFile('design')"
+                                                        class="btn-secondary-sm px-3">
+                                                        <i class="fas fa-upload"></i> Upload
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-600 mb-1.5">Mockup URL *</label>
+                                                <div class="flex gap-2">
+                                                    <input type="url" id="detail-mockup-url" class="glass-input flex-1"
+                                                        placeholder="https://drive.google.com/...">
+                                                    <button onclick="uploadDesignFile('mockup')"
+                                                        class="btn-secondary-sm px-3">
+                                                        <i class="fas fa-upload"></i> Upload
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-600 mb-1.5">Print Location
+                                                    *</label>
+                                                <select id="detail-print-location" class="glass-input w-full">
+                                                    <option value="">Select location</option>
+                                                    <option value="Front">Front</option>
+                                                    <option value="Back">Back</option>
+                                                    <option value="Both">Both Sides</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Special Print Areas -->
+                                    <div class="border-t border-slate-200 pt-6">
+                                        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+                                            Special Print Areas (Sleeve/Neck)</h5>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <label
+                                                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                <input type="checkbox" id="detail-left-sleeve" class="text-indigo-600">
+                                                <span class="text-sm text-slate-700">Left Sleeve</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                <input type="checkbox" id="detail-right-sleeve" class="text-indigo-600">
+                                                <span class="text-sm text-slate-700">Right Sleeve</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                <input type="checkbox" id="detail-neck-label" class="text-indigo-600">
+                                                <span class="text-sm text-slate-700">Neck Label (Internal)</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                <input type="checkbox" id="detail-neck" class="text-indigo-600">
+                                                <span class="text-sm text-slate-700">Neck (External)</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                <input type="checkbox" id="detail-hood" class="text-indigo-600">
+                                                <span class="text-sm text-slate-700">Hood</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                <input type="checkbox" id="detail-pocket" class="text-indigo-600">
+                                                <span class="text-sm text-slate-700">Pocket</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Print Settings -->
+                                    <div class="border-t border-slate-200 pt-6">
+                                        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+                                            Print Settings</h5>
+                                        <div>
+                                            <label class="block text-xs text-slate-600 mb-1.5">Print Type *</label>
+                                            <select id="detail-print-type" class="glass-input w-full">
+                                                <option value="DTG">DTG (Direct to Garment)</option>
+                                                <option value="DTF">DTF (Direct to Film)</option>
+                                                <option value="Basic DTF">Basic DTF</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Info Cards -->
+                        <div class="space-y-6">
+                            <!-- Order Info -->
+                            <div class="detail-card">
+                                <div class="detail-card-header">
+                                    <h4><i class="fas fa-info-circle text-indigo-500"></i> Order information</h4>
+                                </div>
+                                <div class="detail-card-body">
+                                    <div class="info-list">
+                                        <div class="info-item">
+                                            <span class="info-label">Status</span>
+                                            <span id="detail-status" class="stage-badge stage-PENDING">PENDING</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <span class="info-label">Payment</span>
+                                            <span id="detail-payment"
+                                                class="payment-badge payment-SUCCESS">SUCCESS</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <span class="info-label">Source</span>
+                                            <span id="detail-source"
+                                                class="font-semibold text-slate-900 text-sm">Walmart</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Shipping Info -->
+                            <div class="detail-card">
+                                <div class="detail-card-header">
+                                    <h4><i class="fas fa-map-marker-alt text-indigo-500"></i> Shipping information</h4>
+                                    <button class="btn-secondary-sm px-2 py-1 text-xs">Edit</button>
+                                </div>
+                                <div class="detail-card-body">
+                                    <div class="info-list" id="detail-shipping-info">
+                                        <!-- Shipping details injected -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Trackings -->
+                            <div class="detail-card">
+                                <div class="detail-card-header">
+                                    <h4><i class="fas fa-route text-indigo-500"></i> Trackings</h4>
+                                </div>
+                                <div class="detail-card-body">
+                                    <div id="detail-trackings" class="text-sm text-slate-500 italic">
+                                        No trackings available yet.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Action Bar -->
+                    <div class="sticky-action-bar">
+                        <div class="text-sm text-slate-500">
+                            <i class="fas fa-check-circle text-emerald-500 mr-2"></i> Address verified
+                        </div>
+                        <button onclick="handleSendToProduce()" class="btn-gradient px-8 py-3 flex items-center gap-2">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Send to Produce</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Store Modal -->
+    <div id="store-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-navy-900/80 backdrop-blur-sm transition-opacity" onclick="closeStoreModal()">
+        </div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg">
+            <div class="glass-card p-8 animate-fade-in shadow-2xl relative">
+                <button onclick="closeStoreModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i
+                        class="fas fa-times"></i></button>
+
+                <h3 class="text-2xl font-bold text-white mb-6" id="modal-title">Configure Store</h3>
+
+                <form id="store-form" class="space-y-4">
+                    <input type="hidden" id="store-db-id">
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Platform</label>
+                        <select id="store-platform" class="glass-input w-full" onchange="updateCredentialFields()">
+                            <option value="shopify">Shopify</option>
+                            <option value="walmart">Walmart</option>
+                            <option value="woocom">WooCommerce</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Store Name</label>
+                        <input type="text" id="store-name" class="glass-input w-full"
+                            placeholder="e.g. My Flagship Store" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Store ID / Code</label>
+                        <input type="text" id="store-id" class="glass-input w-full"
+                            placeholder="Unique identifier (e.g. shop-01)" required>
+                    </div>
+
+                    <!-- Dynamic Credentials Section -->
+                    <div id="credentials-container"
+                        class="space-y-4 p-4 rounded-xl bg-slate-800/30 border border-slate-700/50 mt-4">
+                        <!-- Injected via JS -->
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-6">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="store-active"
+                                class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-vibrant-primary focus:ring-offset-0">
+                            <span class="text-sm text-slate-300">Active</span>
+                        </label>
+                    </div>
+
+                    <div class="flex gap-3 mt-8">
+                        <button type="button" onclick="closeStoreModal()"
+                            class="flex-1 py-3 rounded-xl border border-slate-600 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">Cancel</button>
+                        <button type="submit"
+                            class="flex-1 btn-gradient py-3 rounded-xl text-white font-bold shadow-lg">Save
+                            Configuration</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-container"></div>
+
+    <!-- Team Modal (Create Team) -->
+    <div id="team-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-navy-900/80 backdrop-blur-sm transition-opacity" onclick="closeTeamModal()">
+        </div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg">
+            <div class="glass-card p-8 animate-fade-in shadow-2xl relative">
+                <button onclick="closeTeamModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i
+                        class="fas fa-times"></i></button>
+                <h3 class="text-2xl font-bold text-white mb-6" id="team-modal-title">Create New Team</h3>
+                <form id="team-form" class="space-y-4">
+                    <input type="hidden" id="team-db-id">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Team Name</label>
+                        <input type="text" id="team-name" class="glass-input w-full" placeholder="e.g. Phoenix Squad"
+                            required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Leader Email</label>
+                        <input type="email" id="team-leader-email" class="glass-input w-full"
+                            placeholder="leader@example.com" required>
+                        <p class="text-xs text-slate-500 mt-1">If user doesn't exist, they will be created as Leader.
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Product Sheet URL
+                            (Optional)</label>
+                        <input type="url" id="team-product-sheet" class="glass-input w-full"
+                            placeholder="https://docs.google.com/spreadsheets/d/...">
+                        <p class="text-xs text-slate-500 mt-1">For auto-syncing product designs.</p>
+                    </div>
+                    <button type="submit" id="team-submit-btn"
+                        class="w-full btn-gradient py-3 rounded-xl text-white font-bold shadow-lg mt-4">Create
+                        Team</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div id="member-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-navy-900/80 backdrop-blur-sm transition-opacity" onclick="closeMemberModal()">
+        </div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg">
+            <div class="glass-card p-8 animate-fade-in shadow-2xl relative">
+                <button onclick="closeMemberModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i
+                        class="fas fa-times"></i></button>
+                <h3 class="text-2xl font-bold text-white mb-6">Add New Seller</h3>
+                <form id="member-form" class="space-y-4">
+                    <input type="hidden" id="member-team-id">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Name</label>
+                        <input type="text" id="member-name" class="glass-input w-full" placeholder="John Doe" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
+                        <input type="email" id="member-email" class="glass-input w-full"
+                            placeholder="seller@example.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
+                        <input type="text" id="member-password" class="glass-input w-full" value="password123" required>
+                    </div>
+                    <button type="submit"
+                        class="w-full btn-gradient py-3 rounded-xl text-white font-bold shadow-lg mt-4">Add
+                        Member</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Modal (Create/Edit Seller/Leader) -->
+    <div id="user-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-navy-900/80 backdrop-blur-sm transition-opacity" onclick="closeUserModal()">
+        </div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg">
+            <div class="glass-card p-8 animate-fade-in shadow-2xl relative">
+                <button onclick="closeUserModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i
+                        class="fas fa-times"></i></button>
+                <h3 class="text-2xl font-bold text-white mb-6" id="user-modal-title">Create New Seller</h3>
+                <form id="user-form" class="space-y-4">
+                    <input type="hidden" id="user-db-id">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Full Name</label>
+                        <input type="text" id="user-name" class="glass-input w-full" placeholder="John Doe" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Email Address</label>
+                        <input type="email" id="user-email" class="glass-input w-full" placeholder="john@example.com"
+                            required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
+                        <input type="password" id="user-password" class="glass-input w-full" placeholder="••••••••">
+                        <p class="text-xs text-slate-500 mt-1" id="user-password-hint">Leave blank to keep current
+                            password if editing.</p>
+                    </div>
+                    <div id="user-team-group">
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Assign to Team</label>
+                        <select id="user-team-id" class="glass-input w-full">
+                            <option value="">No Team</option>
+                            <!-- Teams injected via JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Seller Code</label>
+                        <input type="text" id="user-seller-code" class="glass-input w-full" placeholder="e.g. S01">
+                        <p class="text-xs text-slate-500 mt-1">Unique code for mapping products/orders.</p>
+                    </div>
+                    <div class="flex gap-3 mt-8">
+                        <button type="button" onclick="closeUserModal()"
+                            class="flex-1 py-3 rounded-xl border border-slate-600 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">Cancel</button>
+                        <button type="submit"
+                            class="flex-1 btn-gradient py-3 rounded-xl text-white font-bold shadow-lg">Save
+                            User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delegate Store Modal -->
+    <div id="delegate-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-navy-900/80 backdrop-blur-sm transition-opacity" onclick="closeDelegateModal()">
+        </div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg">
+            <div class="glass-card p-8 animate-fade-in shadow-2xl relative">
+                <button onclick="closeDelegateModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i
+                        class="fas fa-times"></i></button>
+                <h3 class="text-2xl font-bold text-white mb-6">Delegate Store Access</h3>
+                <form id="delegate-form" class="space-y-4">
+                    <input type="hidden" id="delegate-team-id">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Select Seller</label>
+                        <select id="delegate-user-id" class="glass-input w-full" required>
+                            <!-- Users injected -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Select Store</label>
+                        <select id="delegate-store-id" class="glass-input w-full" required>
+                            <!-- Stores injected -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">Permission</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="perm" value="view" checked
+                                    class="text-vibrant-primary bg-slate-700 border-slate-600">
+                                <span class="text-slate-300">View Only</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="perm" value="edit"
+                                    class="text-vibrant-primary bg-slate-700 border-slate-600">
+                                <span class="text-slate-300">Full Access</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full btn-gradient py-3 rounded-xl text-white font-bold shadow-lg mt-4">Grant
+                        Access</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div id="order-detail-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-navy-900/80 backdrop-blur-sm transition-opacity"
+            onclick="closeOrderDetailModal()">
+        </div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl">
+            <div
+                class="glass-card p-8 animate-fade-in shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <button onclick="closeOrderDetailModal()"
+                    class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="text-2xl font-bold text-white" id="detail-order-id">Order #0000</h3>
+                        <p class="text-slate-400 text-sm" id="detail-order-date">Date: N/A</p>
+                    </div>
+                    <span id="detail-order-status" class="stage-badge">PENDING</span>
+                </div>
+
+                <div class="flex border-b border-slate-800 mb-6" id="detail-tabs">
+                    <button onclick="switchDetailTab('overview')"
+                        class="px-6 py-3 text-sm font-medium border-b-2 border-vibrant-primary text-white"
+                        id="tab-overview">Overview</button>
+                    <button onclick="switchDetailTab('notes')"
+                        class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white"
+                        id="tab-notes">Notes & Timeline</button>
+                </div>
+
+                <div id="detail-overview-content" class="tab-pane active">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Column 1: Product & Customer -->
+                        <div class="space-y-6">
+                            <section>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Product
+                                        Detail</h4>
+                                    <button id="btn-open-full"
+                                        class="text-[10px] text-vibrant-primary hover:underline">Open Full Page
+                                        ↗</button>
+                                </div>
+                                <div class="flex gap-4 p-4 rounded-xl bg-slate-800/30 border border-slate-700/50">
+                                    <img id="detail-product-img" src="https://via.placeholder.com/80"
+                                        class="w-20 h-20 rounded-lg object-cover">
+                                    <div class="flex-1">
+                                        <p class="text-white font-medium" id="detail-product-name">Product Name</p>
+                                        <p class="text-xs text-vibrant-primary mt-1 font-mono" id="detail-product-sku">
+                                            SKU:
+                                            N/A</p>
+                                        <p class="text-xs text-slate-400 mt-1" id="detail-product-qty">Quantity: 1</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section>
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Customer
+                                    Information</h4>
+                                <div id="detail-customer-box" class="space-y-2 text-sm text-slate-300">
+                                    <!-- Customer details injected here -->
+                                </div>
+                            </section>
+                        </div>
+
+                        <!-- Column 2: Tracking & Supplier -->
+                        <div class="space-y-6">
+                            <section id="detail-tracking-section" class="hidden">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Tracking
+                                    Details
+                                </h4>
+                                <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                    <p class="text-sm text-emerald-400 font-medium" id="detail-tracking-number">
+                                        #123456789
+                                    </p>
+                                    <p class="text-xs text-slate-400 mt-1" id="detail-carrier">Carrier: UPS</p>
+                                </div>
+                            </section>
+
+                            <section id="detail-supplier-section">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Fulfillment
+                                    info</h4>
+                                <div id="detail-fulfillment-box"
+                                    class="p-4 rounded-xl bg-slate-800/30 border border-slate-700/50 space-y-2 text-sm text-slate-300">
+                                    <!-- Fulfillment details injected here -->
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="detail-notes-content" class="tab-pane hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Internal Notes -->
+                        <div class="flex flex-col h-[400px]">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Internal Notes
+                            </h4>
+                            <div id="notes-list" class="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar mb-4">
+                                <!-- Notes injected here -->
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="text" id="note-input" class="glass-input-sm flex-1"
+                                    placeholder="Type a note...">
+                                <button onclick="handleAddNote()" class="btn-primary-sm px-4">Add</button>
+                            </div>
+                        </div>
+
+                        <!-- Timeline -->
+                        <div class="flex flex-col h-[400px]">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Order History
+                            </h4>
+                            <div id="detail-timeline"
+                                class="flex-1 overflow-y-auto relative pl-6 space-y-4 before:content-[''] before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800 custom-scrollbar pr-2">
+                                <!-- Timeline items injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex gap-3 border-t border-slate-800 pt-6">
+                    <button onclick="closeOrderDetailModal()"
+                        class="flex-1 py-3 rounded-xl border border-slate-600 text-slate-400 hover:text-white transition-colors">Close</button>
+                    <button id="btn-fulfill-detail"
+                        class="flex-1 btn-gradient py-3 rounded-xl text-white font-bold shadow-lg">Fulfill Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fulfillment Modal -->
+    <div id="fulfillment-modal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-navy-900/90 backdrop-blur-md" onclick="closeFulfillmentModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xl">
+            <div
+                class="glass-card p-8 shadow-2xl animate-fade-in relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <button onclick="closeFulfillmentModal()"
+                    class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+
+                <h3 class="text-xl font-bold text-white mb-6">Fulfill Order</h3>
+
+                <div class="space-y-6">
+                    <!-- Supplier Selection -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Select
+                            Provider</label>
+                        <div class="grid grid-cols-3 gap-3" id="supplier-buttons">
+                            <button onclick="selectSupplier('Flashship')" id="btn-sup-Flashship"
+                                class="sup-btn p-3 border rounded-xl border-slate-700 bg-slate-800/50 hover:border-vibrant-primary transition-all text-center group">
+                                <div class="font-bold text-slate-300">Flashship</div>
+                                <div class="text-[10px] text-slate-500">US POD</div>
+                            </button>
+                            <button onclick="selectSupplier('FJPOD')" id="btn-sup-FJPOD"
+                                class="sup-btn p-3 border rounded-xl border-slate-700 bg-slate-800/50 hover:border-vibrant-primary transition-all text-center group">
+                                <div class="font-bold text-slate-300">FJPOD</div>
+                                <div class="text-[10px] text-slate-500">Vietnam POD</div>
+                            </button>
+                            <button onclick="selectSupplier('Printway')" id="btn-sup-Printway"
+                                class="sup-btn p-3 border rounded-xl border-slate-700 bg-slate-800/50 hover:border-vibrant-primary transition-all text-center group">
+                                <div class="font-bold text-slate-300">Printway</div>
+                                <div class="text-[10px] text-slate-500">Global POD</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- FJPOD SKU Selection -->
+                    <div id="fjpod-sku-section" class="hidden animate-fade-in border-t border-slate-800 pt-6">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">FJPOD
+                            Product Selection</label>
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" id="fjpod-product-code" class="glass-input-sm flex-1"
+                                placeholder="Product Code (e.g. G5000)">
+                            <button onclick="searchFJPODSKUs()" id="btn-fjpod-search"
+                                class="btn-primary-sm px-4">Search</button>
+                        </div>
+                        <div id="fjpod-sku-list" class="max-h-48 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                            <p class="text-xs text-slate-500 italic text-center">Enter code to see SKUs</p>
+                        </div>
+                    </div>
+
+                    <!-- Print Config -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 ml-1">Print
+                                Tech</label>
+                            <select id="fulfill-print-tech" class="glass-input-sm w-full">
+                                <option value="DTG Print">DTG Print</option>
+                                <option value="DTF Print">DTF Print</option>
+                                <option value="Inkjet">Inkjet (Posters)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 ml-1">Print
+                                Size</label>
+                            <select id="fulfill-print-size" class="glass-input-sm w-full">
+                                <option value="12x16">12x16 (Standard)</option>
+                                <option value="14x16">14x16 (Large)</option>
+                                <option value="16x21">16x21 (Oversized)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="submitFulfillment()" id="btn-fulfill-submit"
+                        class="w-full btn-gradient py-3 rounded-xl font-bold text-white shadow-lg shadow-vibrant-primary/20 hover:scale-[1.02] transition-all">
+                        Send to Production
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Fulfillment Modal -->
+    <div id="bulk-fulfillment-modal" class="fixed inset-0 z-[70] hidden">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeBulkFulfillmentModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div
+                class="glass-card w-full max-w-6xl max-h-[90vh] flex flex-col p-6 sm:p-8 shadow-2xl animate-fade-in relative overflow-hidden">
+                <button onclick="closeBulkFulfillmentModal()"
+                    class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h3 class="text-xl sm:text-2xl font-bold text-slate-900 mb-1">Bulk Fulfillment Center</h3>
+                        <p class="text-slate-500 text-xs sm:text-sm">Fulfilling <span id="bulk-item-count"
+                                class="text-indigo-600 font-bold">0</span> items in a single shipment.</p>
+                    </div>
+                    <div class="flex gap-3 w-full sm:w-auto">
+                        <select id="bulk-supplier" onchange="updateBulkUI()"
+                            class="glass-input-sm px-4 flex-1 sm:flex-none">
+                            <option value="Flashship">Flashship (US)</option>
+                            <option value="FJPOD">FJPOD (VN)</option>
+                            <option value="Printway">Printway (Global)</option>
+                        </select>
+                        <button onclick="submitBulkFulfillment()"
+                            class="btn-gradient px-4 sm:px-8 py-2 sm:py-3 rounded-xl text-white text-sm sm:text-base font-bold shadow-lg whitespace-nowrap">Process</button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-hidden flex flex-col lg:flex-row gap-4 lg:gap-8">
+                    <!-- Items List -->
+                    <div class="w-full lg:w-2/3 overflow-y-auto custom-scrollbar pr-2 lg:pr-4 space-y-4 lg:space-y-6 max-h-[40vh] lg:max-h-full"
+                        id="bulk-items-list">
+                        <!-- Bulk items injected here -->
+                    </div>
+
+                    <!-- Global Configs -->
+                    <div
+                        class="w-full lg:w-1/3 bg-slate-50 rounded-2xl p-4 lg:p-6 border border-slate-200 hide-scrollbar space-y-4 lg:space-y-8 overflow-y-auto max-h-[40vh] lg:max-h-full">
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Shipping
+                                Recipient</h4>
+                            <div id="bulk-shipping-preview"
+                                class="p-4 bg-white rounded-xl border border-slate-200 text-sm text-slate-600 space-y-1 shadow-sm">
+                                <!-- Address injected here -->
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Production
+                                Config</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 mb-1 ml-1">PRINT TECH
+                                        (FJPOD/Flashship)</label>
+                                    <select id="bulk-print-tech" class="glass-input-sm w-full">
+                                        <option value="DTG Print">DTG Print</option>
+                                        <option value="DTF Print">DTF Print</option>
+                                        <option value="Inkjet">Inkjet (Posters)</option>
+                                    </select>
+                                </div>
+                                <div id="bulk-flashship-print-type-box">
+                                    <label class="block text-[10px] text-slate-500 mb-1 ml-1">FLASHSHIP PRINT
+                                        TYPE</label>
+                                    <select id="bulk-flashship-type" class="glass-input-sm w-full">
+                                        <option value="2">DTG (Default)</option>
+                                        <option value="1">Standard DTF</option>
+                                        <option value="3">Basic DTF</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Global Designs
+                                (Fallback)</h4>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div
+                                        class="p-3 border border-dashed border-slate-300 rounded-xl text-center hover:border-indigo-600 transition-colors cursor-pointer group">
+                                        <div class="text-[10px] text-slate-500 mb-1 uppercase">Front</div>
+                                        <div class="text-xs text-slate-500 group-hover:text-indigo-600 truncate"
+                                            id="global-front-name">No URL</div>
+                                    </div>
+                                    <div
+                                        class="p-3 border border-dashed border-slate-300 rounded-xl text-center hover:border-indigo-600 transition-colors cursor-pointer group">
+                                        <div class="text-[10px] text-slate-500 mb-1 uppercase">Back</div>
+                                        <div class="text-xs text-slate-500 group-hover:text-indigo-600 truncate"
+                                            id="global-back-name">No URL</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onclick="closeProductModal()">
+        </div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg p-4">
+            <div class="glass-card p-8 animate-fade-in shadow-2xl relative">
+                <button onclick="closeProductModal()"
+                    class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i
+                        class="fas fa-times"></i></button>
+                <h3 class="text-2xl font-bold text-slate-900 mb-6 font-primary text-center">Edit Product</h3>
+                <form id="product-form" class="space-y-4">
+                    <input type="hidden" id="product-db-id">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1.5">SKU</label>
+                        <input type="text" id="product-sku" class="glass-input w-full" readonly>
+                        <p class="text-xs text-slate-500 mt-1">SKU cannot be changed.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Title</label>
+                        <input type="text" id="product-title" class="glass-input w-full" placeholder="Product Title"
+                            required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Seller Code</label>
+                        <input type="text" id="product-seller" class="glass-input w-full" placeholder="e.g. S01">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Base SKU</label>
+                        <input type="text" id="product-base-sku" class="glass-input w-full" placeholder="Root SKU">
+                    </div>
+                    <div class="flex gap-3 mt-8">
+                        <button type="button" onclick="closeProductModal()"
+                            class="flex-1 py-3 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors font-semibold">Cancel</button>
+                        <button type="submit"
+                            class="flex-1 btn-gradient py-3 rounded-xl text-white font-bold shadow-lg">Save
+                            Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- User/Seller Modal -->
+    <div id="user-modal" class="modal-overlay hidden">
+        <div class="modal-container max-w-lg">
+            <div class="modal-header">
+                <h3 id="user-modal-title" class="text-xl font-bold text-slate-900">Create New Seller</h3>
+                <button onclick="closeUserModal()" class="text-slate-400 hover:text-slate-900 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="user-form" class="space-y-5">
+                    <input type="hidden" id="user-db-id">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Full Name</label>
+                        <input type="text" id="user-name" required class="glass-input w-full" placeholder="John Doe">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Email</label>
+                        <input type="email" id="user-email" required class="glass-input w-full"
+                            placeholder="john@example.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Password</label>
+                        <input type="password" id="user-password" minlength="8" class="glass-input w-full"
+                            placeholder="Minimum 8 characters">
+                        <p id="user-password-hint" class="text-xs text-slate-500 mt-1 ml-1 hidden">Leave blank to keep
+                            current password</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Team (Optional)</label>
+                        <select id="user-team-id" class="glass-input w-full">
+                            <option value="">No Team</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Seller Code
+                            (Optional)</label>
+                        <input type="text" id="user-seller-code" class="glass-input w-full"
+                            placeholder="e.g., SELLER001">
+                    </div>
+                    <div class="flex gap-3 mt-8">
+                        <button type="button" onclick="closeUserModal()"
+                            class="flex-1 py-3 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors font-semibold">Cancel</button>
+                        <button type="submit"
+                            class="flex-1 btn-gradient py-3 rounded-xl text-white font-bold shadow-lg">Create
+                            Seller</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=1.1"></script>
+</body>
+
+</html>

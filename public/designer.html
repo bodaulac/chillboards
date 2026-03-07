@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChillBoard Designer Portal</title>
+    <link rel="stylesheet" href="designer.css">
+</head>
+
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>🎨 ChillBoard</h1>
+                <p>Designer Portal</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="designer-email">Email</label>
+                    <input type="email" id="designer-email" placeholder="designer@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="designer-code">Designer Code</label>
+                    <input type="text" id="designer-code" placeholder="DE101" required>
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+                <div id="login-error" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Designer Dashboard -->
+    <div id="dashboard-screen" class="screen">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1>🎨 ChillBoard</h1>
+                <span id="designer-name" class="designer-name"></span>
+            </div>
+            <div class="header-right">
+                <button id="refresh-btn" class="btn-secondary">🔄 Refresh</button>
+                <button id="logout-btn" class="btn-secondary">Logout</button>
+            </div>
+        </header>
+
+        <!-- Status Tabs -->
+        <div class="status-tabs">
+            <button class="tab-btn active" data-status="all">All Orders</button>
+            <button class="tab-btn" data-status="PENDING">Pending</button>
+            <button class="tab-btn" data-status="DESIGNING">Designing</button>
+            <button class="tab-btn" data-status="REVIEW">In Review</button>
+            <button class="tab-btn" data-status="APPROVED">Approved</button>
+        </div>
+
+        <!-- Orders List -->
+        <div class="orders-container">
+            <div id="orders-loading" class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading orders...</p>
+            </div>
+            <div id="orders-list" class="orders-list"></div>
+            <div id="no-orders" class="no-orders" style="display: none;">
+                <p>📦 No orders assigned yet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Design Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Upload Design</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="order-info">
+                    <p><strong>Order ID:</strong> <span id="modal-order-id"></span></p>
+                    <p><strong>Product:</strong> <span id="modal-product-name"></span></p>
+                    <p><strong>Size:</strong> <span id="modal-size"></span> | <strong>Color:</strong> <span
+                            id="modal-color"></span></p>
+                </div>
+
+                <form id="upload-form">
+                    <div class="form-group">
+                        <label>Print Location *</label>
+                        <select id="print-location" required>
+                            <option value="">Select location</option>
+                            <option value="Front">Front</option>
+                            <option value="Back">Back</option>
+                            <option value="Both">Both Sides</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Design File URL (Google Drive) *</label>
+                        <input type="url" id="design-url" placeholder="https://drive.google.com/..." required>
+                        <small>Share link to your design file</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mockup Preview URL (Google Drive) *</label>
+                        <input type="url" id="mockup-url" placeholder="https://drive.google.com/..." required>
+                        <small>Share link to mockup image</small>
+                    </div>
+
+                    <!-- Second Design (Optional) -->
+                    <div class="form-section">
+                        <h3>Second Design (Optional - for Both Sides)</h3>
+                        <div class="form-group">
+                            <label>Print Location 2</label>
+                            <select id="print-location-2">
+                                <option value="">None</option>
+                                <option value="Front">Front</option>
+                                <option value="Back">Back</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Design File URL 2</label>
+                            <input type="url" id="design-url-2" placeholder="https://drive.google.com/...">
+                        </div>
+                        <div class="form-group">
+                            <label>Mockup Preview URL 2</label>
+                            <input type="url" id="mockup-url-2" placeholder="https://drive.google.com/...">
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary modal-cancel">Cancel</button>
+                        <button type="submit" class="btn-primary">Submit Design</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="designer.js"></script>
+</body>
+
+</html>
