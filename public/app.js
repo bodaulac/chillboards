@@ -1724,11 +1724,21 @@ async function syncProducts(teamId) {
 
 async function initProductGSheetConfig() {
     try {
-        // Load all teams and cache them
+        // Load teams: try all teams (admin), fallback to own team (seller)
         if (!window.allTeams) {
-            const res = await fetch(`${API_BASE}/teams`, { headers: getAuthHeaders() });
+            let res = await fetch(`${API_BASE}/teams`, { headers: getAuthHeaders() });
             if (res.ok) {
-                window.allTeams = await res.json();
+                const data = await res.json();
+                window.allTeams = Array.isArray(data) ? data : [];
+            } else {
+                // Non-admin: fetch own team via /teams/my alias
+                res = await fetch(`${API_BASE}/teams/my`, { headers: getAuthHeaders() });
+                if (res.ok) {
+                    const myTeam = await res.json();
+                    window.allTeams = myTeam.error ? [] : [myTeam];
+                } else {
+                    window.allTeams = [];
+                }
             }
         }
         const teams = window.allTeams || [];
@@ -1738,17 +1748,17 @@ async function initProductGSheetConfig() {
         const syncBtn = document.getElementById('btn-sync-gsheet');
 
         if (!teams.length) {
-            if (statusEl) statusEl.textContent = 'Create a team in Teams tab first';
+            if (statusEl) statusEl.textContent = 'No team found';
             return;
         }
 
-        // Build team selector
+        // Build team selector (hide if only 1 team)
         if (selectEl) {
-            selectEl.innerHTML = teams.map(t => `<option value="${t.id}" ${t.product_sheet_url ? 'data-has-sheet="1"' : ''}>${t.name}${t.product_sheet_url ? ' (Sheet configured)' : ''}</option>`).join('');
-            // Default to first team with sheet configured, or first team
+            selectEl.innerHTML = teams.map(t => `<option value="${t.id}">${t.name}${t.product_sheet_url ? ' (Sheet configured)' : ''}</option>`).join('');
             const sheetTeam = teams.find(t => t.product_sheet_url) || teams[0];
             selectEl.value = sheetTeam.id;
             selectEl.onchange = () => updateGSheetUI();
+            if (teams.length === 1) selectEl.style.display = 'none';
         }
 
         // Set currentTeamData for sync
