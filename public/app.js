@@ -1724,26 +1724,30 @@ async function syncProducts(teamId) {
 
 async function initProductGSheetConfig() {
     try {
-        // Load teams: try all teams (admin), fallback to own team (seller)
         if (!window.allTeams) {
-            let res = await fetch(`${API_BASE}/teams`, { headers: getAuthHeaders() });
-            if (res.ok) {
-                const data = await res.json();
-                window.allTeams = Array.isArray(data) ? data : [];
-            } else {
-                // Non-admin: fetch own team via /teams/my alias
-                res = await fetch(`${API_BASE}/teams/my`, { headers: getAuthHeaders() });
-                if (res.ok) {
-                    const myTeam = await res.json();
-                    window.allTeams = myTeam.error ? [] : [myTeam];
-                } else {
-                    window.allTeams = [];
+            window.allTeams = [];
+            // Try admin endpoint
+            try {
+                const r1 = await fetch(`${API_BASE}/teams`, { headers: getAuthHeaders() });
+                if (r1.ok) {
+                    const d = await r1.json();
+                    if (Array.isArray(d) && d.length) window.allTeams = d;
                 }
+            } catch(e) { console.log('teams list failed', e); }
+            // Fallback: own team
+            if (!window.allTeams.length) {
+                try {
+                    const r2 = await fetch(`${API_BASE}/teams/my`, { headers: getAuthHeaders() });
+                    if (r2.ok) {
+                        const t = await r2.json();
+                        if (t && t.id) window.allTeams = [t];
+                    }
+                } catch(e) { console.log('teams/my failed', e); }
             }
+            console.log('allTeams loaded:', window.allTeams.length, window.allTeams.map(t => t.name));
         }
-        const teams = window.allTeams || [];
+        const teams = window.allTeams;
         const selectEl = document.getElementById('product-team-select');
-        const urlInput = document.getElementById('product-gsheet-url');
         const statusEl = document.getElementById('product-gsheet-status');
         const syncBtn = document.getElementById('btn-sync-gsheet');
 
@@ -1752,7 +1756,6 @@ async function initProductGSheetConfig() {
             return;
         }
 
-        // Build team selector (hide if only 1 team)
         if (selectEl) {
             selectEl.innerHTML = teams.map(t => `<option value="${t.id}">${t.name}${t.product_sheet_url ? ' (Sheet configured)' : ''}</option>`).join('');
             const sheetTeam = teams.find(t => t.product_sheet_url) || teams[0];
@@ -1761,10 +1764,9 @@ async function initProductGSheetConfig() {
             if (teams.length === 1) selectEl.style.display = 'none';
         }
 
-        // Set currentTeamData for sync
         updateGSheetUI();
     } catch (e) {
-        console.error('Failed to load team config:', e);
+        console.error('initProductGSheetConfig error:', e);
     }
 }
 
