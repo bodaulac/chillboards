@@ -2558,32 +2558,36 @@ async function loadFlashshipOrders() {
     tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading FlashShip orders...</td></tr>';
 
     try {
-        const res = await fetch(`${API_BASE}/fulfillment/flashship/orders?limit=100`, { headers: getAuthHeaders() });
+        // Load local orders that were fulfilled via Flashship
+        const res = await fetch(`${API_BASE}/orders?limit=200&status=PRODUCTION,SHIPPED,DELIVERED`, { headers: getAuthHeaders() });
         const result = await res.json();
-        const orders = result.data || [];
+        const allOrders = result.data || [];
+        const orders = allOrders.filter(o => {
+            const f = o.fulfillment || {};
+            return (f.supplier || f.provider || '').toLowerCase() === 'flashship';
+        });
 
         if (!orders.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">No orders found on FlashShip.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">No FlashShip fulfilled orders found. Send orders to produce via FlashShip first.</td></tr>';
             return;
         }
 
         tbody.innerHTML = orders.map(o => {
-            const status = (o.status || 'unknown').toLowerCase();
-            const statusClass = status === 'completed' || status === 'shipped' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                status === 'processing' || status === 'in_production' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
-                status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                status === 'cancelled' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+            const f = o.fulfillment || {};
+            const t = o.tracking_info || {};
+            const status = (o.status || 'PRODUCTION').toUpperCase();
+            const statusClass = status === 'SHIPPED' || status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                status === 'PRODUCTION' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
                 'bg-slate-100 text-slate-600 border-slate-200';
-            const tracking = o.tracking_number || '';
-            const carrier = o.tracking_company || '';
-            const created = o.created_at ? new Date(o.created_at).toLocaleDateString() : o.createdAt || '—';
-            const product = o.products?.[0] || {};
-            const prodInfo = product.variant_name || product.product_name || '—';
+            const tracking = t.number || t.tracking_number || '';
+            const carrier = t.carrier || '';
+            const details = o.product_details || {};
+            const created = o.order_date ? new Date(o.order_date).toLocaleDateString() : '—';
 
             return `<tr>
-                <td class="font-mono font-bold text-indigo-600">${o.id || o.flashship_id || '—'}</td>
-                <td class="font-mono text-xs text-slate-700">${o.order_id || '—'}</td>
-                <td class="text-sm text-slate-600 max-w-[200px] truncate" title="${prodInfo}">${prodInfo}</td>
+                <td class="font-mono font-bold text-indigo-600">${f.supplierOrderId || '—'}</td>
+                <td class="font-mono text-xs text-slate-700">${o.order_id}</td>
+                <td class="text-sm text-slate-600 max-w-[200px] truncate" title="${details.name || ''}">${details.name || '—'}</td>
                 <td>${tracking ? `<div class="flex flex-col"><span class="text-xs font-bold text-slate-900">${tracking}</span><span class="text-[10px] text-slate-400 uppercase font-bold">${carrier}</span></div>` : '<span class="text-xs text-slate-400 italic">No Tracking</span>'}</td>
                 <td><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${statusClass}">${status}</span></td>
                 <td class="text-xs text-slate-500">${created}</td>

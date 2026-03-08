@@ -460,31 +460,48 @@ class FlashshipService
         try {
             if (!$this->apiToken) throw new \Exception('Flashship API token not configured');
 
+            // Try GET /orders/{id} first (primary endpoint)
             $response = Http::withToken($this->apiToken)
-                ->timeout(30)
-                ->get("{$this->baseUrl}/orders/order-detail", [
-                    'order_id' => $flashshipOrderId
-                ]);
+                ->timeout(15)
+                ->get("{$this->baseUrl}/orders/{$flashshipOrderId}");
+
+            // Fallback to /orders/order-detail if 404
+            if ($response->status() === 404) {
+                $response = Http::withToken($this->apiToken)
+                    ->timeout(15)
+                    ->get("{$this->baseUrl}/orders/order-detail", [
+                        'order_id' => $flashshipOrderId
+                    ]);
+            }
 
             if ($response->successful()) {
                 $data = $response->json();
-                $order = $data['data'] ?? null;
+                $order = $data['data'] ?? $data;
 
                 if ($order && !empty($order['tracking_number'])) {
                     return [
                         'success' => true,
                         'shipped' => true,
                         'tracking_number' => $order['tracking_number'],
-                        'carrier' => $order['tracking_company'] ?? 'UPS',
-                        'status' => 'SHIPPED'
+                        'carrier' => $order['tracking_company'] ?? $order['carrier'] ?? 'UPS',
+                        'tracking_url' => $order['tracking_url'] ?? null,
+                        'status' => 'SHIPPED',
+                        'raw' => $order,
                     ];
                 }
 
                 return [
                     'success' => true,
                     'shipped' => false,
-                    'status' => $order['status'] ?? 'PENDING'
+                    'status' => $order['status'] ?? 'PENDING',
+                    'raw' => $order,
                 ];
+            }
+
+            // If 404 and order ID has suffix, try base ID
+            if ($response->status() === 404 && str_contains($flashshipOrderId, '-')) {
+                $baseId = explode('-', $flashshipOrderId)[0];
+                return $this->syncTracking($baseId);
             }
 
             return ['success' => false, 'error' => $response->body()];
