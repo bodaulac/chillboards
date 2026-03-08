@@ -2527,6 +2527,21 @@ async function loadFulfillment() {
             `;
         }).join('');
 
+        // Also load finance stats for top-level stat cards
+        try {
+            const finRes = await fetch(`${API_BASE}/fulfillment/flashship/finance`, { headers: getAuthHeaders() });
+            const finData = await finRes.json();
+            if (finData.success) {
+                const fmtMoney = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('finance-stat-revenue').textContent = fmtMoney(finData.summary.totalRevenue);
+                document.getElementById('finance-stat-cost').textContent = fmtMoney(finData.summary.totalCost);
+                const pEl = document.getElementById('finance-stat-profit');
+                pEl.textContent = fmtMoney(finData.summary.totalProfit);
+                pEl.className = `text-2xl font-bold ${finData.summary.totalProfit > 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+                document.getElementById('finance-stat-margin').textContent = finData.summary.avgMargin.toFixed(1) + '%';
+            }
+        } catch (e) { /* Finance stats non-critical */ }
+
     } catch (e) {
         console.error(e);
         tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-red-500">Failed to load fulfillment data.</td></tr>';
@@ -2534,28 +2549,24 @@ async function loadFulfillment() {
 }
 
 function switchFulfillTab(tab) {
-    const localPanel = document.getElementById('fulfill-local-panel');
-    const fsPanel = document.getElementById('fulfill-flashship-panel');
-    const btnLocal = document.getElementById('ftab-local');
-    const btnFs = document.getElementById('ftab-flashship');
+    const panels = ['local', 'flashship', 'finance'];
+    const activeClass = 'px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white';
+    const inactiveClass = 'px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200';
 
-    if (tab === 'flashship') {
-        localPanel.classList.add('hidden');
-        fsPanel.classList.remove('hidden');
-        btnLocal.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200';
-        btnFs.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white';
-        loadFlashshipOrders();
-    } else {
-        fsPanel.classList.add('hidden');
-        localPanel.classList.remove('hidden');
-        btnFs.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200';
-        btnLocal.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white';
-    }
+    panels.forEach(p => {
+        const panel = document.getElementById(`fulfill-${p}-panel`);
+        const btn = document.getElementById(`ftab-${p}`);
+        if (panel) panel.classList.toggle('hidden', p !== tab);
+        if (btn) btn.className = (p === tab) ? activeClass : inactiveClass;
+    });
+
+    if (tab === 'flashship') loadFlashshipOrders();
+    if (tab === 'finance') loadFulfillmentFinance();
 }
 
 async function loadFlashshipOrders() {
     const tbody = document.getElementById('flashship-orders-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading FlashShip orders...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading FlashShip orders...</td></tr>';
 
     try {
         const res = await fetch(`${API_BASE}/fulfillment/flashship/orders`, { headers: getAuthHeaders() });
@@ -2563,13 +2574,16 @@ async function loadFlashshipOrders() {
         const orders = result.data || [];
 
         if (!orders.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500">No FlashShip fulfilled orders found. Use "Lookup" above to search by FlashShip Order ID, or fulfill orders via FlashShip first.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-10 text-center text-slate-500">No FlashShip fulfilled orders found. Use "Lookup" above to search by FlashShip Order ID, or fulfill orders via FlashShip first.</td></tr>';
             return;
         }
 
         tbody.innerHTML = orders.map(o => {
             const f = o.fulfillment || {};
             const t = o.tracking_info || {};
+            const cost = f.cost || {};
+            const pd = o.product_details || {};
+            const fin = o.financials || {};
             const status = (f.status || o.status || 'PENDING').toUpperCase();
             const statusClass = status === 'SHIPPED' || status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                 status === 'PRODUCTION' || status === 'PENDING' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
@@ -2577,14 +2591,22 @@ async function loadFlashshipOrders() {
                 'bg-slate-100 text-slate-600 border-slate-200';
             const tracking = f.trackingNumber || t.number || '';
             const carrier = f.carrier || t.carrier || '';
-            const details = o.product_details || {};
             const created = f.fulfilledAt ? new Date(f.fulfilledAt).toLocaleDateString() : (o.order_date ? new Date(o.order_date).toLocaleDateString() : '—');
             const fsId = f.supplierOrderId || '—';
+
+            // Finance columns
+            const supplierCost = parseFloat(cost.total || fin.fulfillment_cost || 0);
+            const revenue = parseFloat(fin.total_price || pd.price || 0);
+            const platformFee = revenue * ((o.platform || 'walmart').toLowerCase() === 'shopify' ? 0.04 : 0.15);
+            const profit = revenue - supplierCost - platformFee;
 
             return `<tr>
                 <td class="font-mono font-bold text-indigo-600">${fsId}</td>
                 <td class="font-mono text-xs text-slate-700">${o.order_id || '—'}</td>
-                <td class="text-sm text-slate-600 max-w-[200px] truncate" title="${details.name || ''}">${details.name || '—'}</td>
+                <td class="text-sm text-slate-600 max-w-[180px] truncate" title="${pd.name || ''}">${pd.name || '—'}</td>
+                <td class="text-right font-mono text-xs ${supplierCost > 0 ? 'text-slate-700' : 'text-slate-300'}">${supplierCost > 0 ? '$' + supplierCost.toFixed(2) : '---'}</td>
+                <td class="text-right font-mono text-xs text-slate-700">${revenue > 0 ? '$' + revenue.toFixed(2) : '---'}</td>
+                <td class="text-right font-mono text-xs font-bold ${profit > 0 ? 'text-emerald-600' : profit < 0 ? 'text-rose-600' : 'text-slate-400'}">${revenue > 0 && supplierCost > 0 ? '$' + profit.toFixed(2) : '---'}</td>
                 <td>${tracking ? `<div class="flex flex-col"><span class="text-xs font-bold text-slate-900">${tracking}</span><span class="text-[10px] text-slate-400 uppercase font-bold">${carrier}</span></div>` : '<span class="text-xs text-slate-400 italic">No Tracking</span>'}</td>
                 <td><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${statusClass}">${status}</span></td>
                 <td class="text-xs text-slate-500">${created}</td>
@@ -2595,7 +2617,7 @@ async function loadFlashshipOrders() {
         }).join('');
     } catch (e) {
         console.error('FlashShip orders error:', e);
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-red-500">Failed to load FlashShip orders.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-10 text-center text-red-500">Failed to load FlashShip orders.</td></tr>';
     }
 }
 
@@ -2650,11 +2672,21 @@ async function lookupFlashshipOrder(orderId) {
                 html += `<div class="text-sm text-slate-400 italic">No tracking number yet</div>`;
             }
 
-            if (raw.total_fee != null) {
-                html += `<div class="text-xs text-slate-500">Cost: $${(raw.total_fee || 0).toFixed(2)} | Shipping: $${(raw.shipping_fee || raw.shipping_cost || 0).toFixed(2)}</div>`;
+            if (raw.total_fee != null || data.cost) {
+                const c = data.cost || {};
+                html += `<div class="mt-2 p-3 bg-slate-50 rounded-lg">
+                    <h5 class="text-xs font-bold text-slate-500 uppercase mb-2">Cost Breakdown</h5>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                        <div><span class="text-slate-400">Total:</span> <span class="font-bold text-slate-700">$${(c.total || raw.total_fee || 0).toFixed(2)}</span></div>
+                        <div><span class="text-slate-400">Base:</span> <span class="font-bold">$${(c.base || raw.base_cost || 0).toFixed(2)}</span></div>
+                        <div><span class="text-slate-400">Print:</span> <span class="font-bold">$${(c.print || raw.print_cost || 0).toFixed(2)}</span></div>
+                        <div><span class="text-slate-400">Shipping:</span> <span class="font-bold">$${(c.shipping || raw.shipping_fee || 0).toFixed(2)}</span></div>
+                        ${(c.refund || raw.refund_amount) ? `<div><span class="text-rose-400">Refund:</span> <span class="font-bold text-rose-600">-$${(c.refund || raw.refund_amount || 0).toFixed(2)}</span></div>` : ''}
+                    </div>
+                </div>`;
             }
             if (raw.created_at) {
-                html += `<div class="text-xs text-slate-400">Created: ${new Date(raw.created_at).toLocaleString()}</div>`;
+                html += `<div class="text-xs text-slate-400 mt-1">Created: ${new Date(raw.created_at).toLocaleString()}</div>`;
             }
 
             html += `</div>`;
@@ -2693,6 +2725,83 @@ async function syncAllFlashshipTracking() {
         }
     } catch (e) {
         alert('Sync error: ' + e.message);
+    }
+}
+
+async function syncFlashshipCosts() {
+    if (!confirm('Sync costs for all FlashShip orders? This fetches cost data from FlashShip API.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/fulfillment/flashship/sync-costs`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`Cost sync complete! ${data.count} order(s) updated.`);
+            loadFlashshipOrders();
+            loadFulfillmentFinance();
+        } else {
+            alert('Cost sync failed: ' + (data.message || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Cost sync error: ' + e.message);
+    }
+}
+
+async function loadFulfillmentFinance() {
+    const tbody = document.getElementById('finance-orders-tbody');
+    tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading finance data...</td></tr>';
+
+    try {
+        const res = await fetch(`${API_BASE}/fulfillment/flashship/finance`, { headers: getAuthHeaders() });
+        const result = await res.json();
+
+        if (!result.success) {
+            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-500">Failed to load finance data.</td></tr>';
+            return;
+        }
+
+        const { summary, data } = result;
+
+        // Update top-level finance stat cards
+        const fmtMoney = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('finance-stat-revenue').textContent = fmtMoney(summary.totalRevenue);
+        document.getElementById('finance-stat-cost').textContent = fmtMoney(summary.totalCost);
+        const profitEl = document.getElementById('finance-stat-profit');
+        profitEl.textContent = fmtMoney(summary.totalProfit);
+        profitEl.className = `text-2xl font-bold ${summary.totalProfit > 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+        document.getElementById('finance-stat-margin').textContent = summary.avgMargin.toFixed(1) + '%';
+
+        // Update finance panel summary cards
+        document.getElementById('finance-orders-with-cost').textContent = summary.ordersWithCost;
+        document.getElementById('finance-total-orders').textContent = summary.totalOrders;
+        document.getElementById('finance-platform-fees').textContent = fmtMoney(summary.totalPlatformFee);
+        const marginEl = document.getElementById('finance-net-margin');
+        marginEl.textContent = summary.avgMargin.toFixed(1) + '%';
+        marginEl.className = `text-3xl font-bold ${summary.avgMargin > 20 ? 'text-emerald-600' : summary.avgMargin > 0 ? 'text-amber-600' : 'text-rose-600'}`;
+
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">No finance data yet. Sync costs first.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(o => {
+            const profitColor = o.profit > 0 ? 'text-emerald-600' : o.profit < 0 ? 'text-rose-600' : 'text-slate-400';
+            const marginColor = o.margin > 20 ? 'text-emerald-600' : o.margin > 0 ? 'text-amber-600' : 'text-rose-600';
+            return `<tr>
+                <td class="font-mono text-xs text-indigo-600 font-bold">${o.orderId || '---'}</td>
+                <td class="text-sm text-slate-600 max-w-[180px] truncate" title="${o.productName}">${o.productName}</td>
+                <td class="text-sm text-slate-500">${o.quantity}</td>
+                <td class="text-right font-mono text-sm text-slate-700">${o.revenue > 0 ? '$' + o.revenue.toFixed(2) : '---'}</td>
+                <td class="text-right font-mono text-sm ${o.supplierCost > 0 ? 'text-slate-700' : 'text-slate-300'}">${o.supplierCost > 0 ? '$' + o.supplierCost.toFixed(2) : '---'}</td>
+                <td class="text-right font-mono text-xs text-slate-400">${o.revenue > 0 ? '$' + o.platformFee.toFixed(2) : '---'}</td>
+                <td class="text-right font-mono text-sm font-bold ${profitColor}">${o.supplierCost > 0 ? '$' + o.profit.toFixed(2) : '---'}</td>
+                <td class="text-right font-mono text-xs font-bold ${marginColor}">${o.supplierCost > 0 ? o.margin.toFixed(1) + '%' : '---'}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('Finance load error:', e);
+        tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-500">Failed to load finance data.</td></tr>';
     }
 }
 

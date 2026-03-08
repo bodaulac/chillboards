@@ -454,6 +454,8 @@ class OrderController extends Controller
                         'status' => $order->status,
                         'flashship_id' => $flashshipId,
                     ];
+                    // Persist cost to local order
+                    $this->persistCostToOrder($order, $result);
                     return response()->json($result);
                 }
 
@@ -485,9 +487,30 @@ class OrderController extends Controller
                 'status' => $localOrder->status,
                 'flashship_id' => $input,
             ];
+            // Persist cost to local order
+            $this->persistCostToOrder($localOrder, $result);
         }
 
         return response()->json($result);
+    }
+
+    /**
+     * Persist cost data from FlashShip API result to a local order.
+     */
+    private function persistCostToOrder(Order $order, array $result): void
+    {
+        if (!($result['success'] ?? false) || empty($result['cost'])) return;
+
+        $fulfillment = $order->fulfillment ?? [];
+        $fulfillment['cost'] = $result['cost'];
+        $fulfillment['costSyncedAt'] = now()->toIso8601String();
+        $order->fulfillment = $fulfillment;
+
+        $financials = $order->financials ?? [];
+        $financials['fulfillment_cost'] = $result['cost']['total'];
+        $financials['cost_breakdown'] = $result['cost'];
+        $order->financials = $financials;
+        $order->save();
     }
 
     public function syncFlashshipTracking()
@@ -505,6 +528,16 @@ class OrderController extends Controller
 
             if ($supplierOrderId) {
                 $status = $service->syncTracking($supplierOrderId);
+
+                // Always save cost data if available
+                if ($status['success'] && !empty($status['cost'])) {
+                    $fulfillment['cost'] = $status['cost'];
+                    $fulfillment['costSyncedAt'] = now()->toIso8601String();
+                    $fin = $order->financials ?? [];
+                    $fin['fulfillment_cost'] = $status['cost']['total'];
+                    $order->financials = $fin;
+                }
+
                 if ($status['success'] && ($status['shipped'] ?? false)) {
                     $fulfillment['status'] = 'SHIPPED';
                     $fulfillment['trackingNumber'] = $status['tracking_number'];
@@ -526,11 +559,130 @@ class OrderController extends Controller
                     $order->timeline = $timeline;
                     $order->save();
                     $count++;
+                } elseif ($status['success'] && !empty($status['cost'])) {
+                    // Cost was updated but not shipped yet — still save
+                    $order->fulfillment = $fulfillment;
+                    $order->save();
                 }
             }
         }
 
         return response()->json(['success' => true, 'count' => $count]);
+    }
+
+    /**
+     * Sync costs for ALL FlashShip orders (not just PRODUCTION).
+     * Fetches cost data from FlashShip API and saves to fulfillment.cost.
+     */
+    public function syncFlashshipCosts()
+    {
+        $orders = Order::where('fulfillment->supplier', 'Flashship')
+            ->whereNotNull('fulfillment->supplierOrderId')
+            ->get();
+
+        $count = 0;
+        $service = app(FlashshipService::class);
+
+        foreach ($orders as $order) {
+            $fulfillment = $order->fulfillment;
+            $supplierOrderId = $fulfillment['supplierOrderId'] ?? null;
+
+            // Skip if already has cost data
+            if (!empty($fulfillment['cost']['total']) && $fulfillment['cost']['total'] > 0) {
+                continue;
+            }
+
+            if ($supplierOrderId) {
+                $status = $service->syncTracking($supplierOrderId);
+                if ($status['success'] && !empty($status['cost']) && $status['cost']['total'] > 0) {
+                    $fulfillment['cost'] = $status['cost'];
+                    $fulfillment['costSyncedAt'] = now()->toIso8601String();
+                    $order->fulfillment = $fulfillment;
+
+                    $financials = $order->financials ?? [];
+                    $financials['fulfillment_cost'] = $status['cost']['total'];
+                    $order->financials = $financials;
+                    $order->save();
+                    $count++;
+                }
+                usleep(200000); // 200ms delay to avoid rate limiting
+            }
+        }
+
+        return response()->json(['success' => true, 'count' => $count]);
+    }
+
+    /**
+     * Get finance/cost analytics for FlashShip fulfilled orders.
+     */
+    public function fulfillmentFinance(Request $request)
+    {
+        $orders = Order::where('fulfillment->supplier', 'Flashship')
+            ->orderByDesc('updated_at')
+            ->limit(500)
+            ->get();
+
+        $platformFees = ['walmart' => 0.15, 'shopify' => 0.04];
+
+        $items = [];
+        $totalRevenue = 0;
+        $totalCost = 0;
+        $totalPlatformFee = 0;
+        $totalProfit = 0;
+        $ordersWithCost = 0;
+
+        foreach ($orders as $order) {
+            $f = $order->fulfillment ?? [];
+            $pd = $order->product_details ?? [];
+            $fin = $order->financials ?? [];
+
+            $revenue = (float) ($fin['total_price'] ?? $pd['price'] ?? 0);
+            $supplierCost = (float) ($f['cost']['total'] ?? $fin['fulfillment_cost'] ?? 0);
+            $platformKey = strtolower($order->platform ?? 'walmart');
+            $feeRate = $platformFees[$platformKey] ?? 0.15;
+            $platformFee = $revenue * $feeRate;
+            $profit = $revenue - $supplierCost - $platformFee;
+            $margin = $revenue > 0 ? ($profit / $revenue) * 100 : 0;
+
+            if ($supplierCost > 0) $ordersWithCost++;
+
+            $totalRevenue += $revenue;
+            $totalCost += $supplierCost;
+            $totalPlatformFee += $platformFee;
+            $totalProfit += $profit;
+
+            $items[] = [
+                'orderId'       => $order->order_id,
+                'flashshipId'   => $f['supplierOrderId'] ?? null,
+                'productName'   => $pd['name'] ?? 'Unknown',
+                'quantity'      => (int) ($pd['quantity'] ?? 1),
+                'revenue'       => round($revenue, 2),
+                'supplierCost'  => round($supplierCost, 2),
+                'platformFee'   => round($platformFee, 2),
+                'profit'        => round($profit, 2),
+                'margin'        => round($margin, 1),
+                'platform'      => $order->platform,
+                'status'        => $order->status,
+                'date'          => $order->order_date?->toIso8601String(),
+                'costBreakdown' => $f['cost'] ?? null,
+            ];
+        }
+
+        $avgMargin = $totalRevenue > 0 ? ($totalProfit / $totalRevenue) * 100 : 0;
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'totalRevenue'     => round($totalRevenue, 2),
+                'totalCost'        => round($totalCost, 2),
+                'totalPlatformFee' => round($totalPlatformFee, 2),
+                'totalProfit'      => round($totalProfit, 2),
+                'avgMargin'        => round($avgMargin, 1),
+                'totalOrders'      => count($items),
+                'ordersWithCost'   => $ordersWithCost,
+            ],
+            'data' => $items,
+        ]);
     }
 
     public function syncFJPODTracking()

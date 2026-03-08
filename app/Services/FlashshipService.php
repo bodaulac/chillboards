@@ -478,6 +478,22 @@ class FlashshipService
                 $data = $response->json();
                 $order = $data['data'] ?? $data;
 
+                // Extract cost data from FlashShip response
+                $cost = null;
+                if ($order) {
+                    $totalFee = (float) ($order['total_fee'] ?? $order['total_cost'] ?? 0);
+                    $refund = (float) ($order['refund_amount'] ?? 0);
+                    if ($totalFee > 0) {
+                        $cost = [
+                            'total'    => round($totalFee - $refund, 2),
+                            'base'     => (float) ($order['base_cost'] ?? $order['product_cost'] ?? 0),
+                            'print'    => (float) ($order['print_cost'] ?? $order['printing_cost'] ?? 0),
+                            'shipping' => (float) ($order['shipping_fee'] ?? $order['shipping_cost'] ?? 0),
+                            'refund'   => $refund,
+                        ];
+                    }
+                }
+
                 if ($order && !empty($order['tracking_number'])) {
                     return [
                         'success' => true,
@@ -486,6 +502,7 @@ class FlashshipService
                         'carrier' => $order['tracking_company'] ?? $order['carrier'] ?? 'UPS',
                         'tracking_url' => $order['tracking_url'] ?? null,
                         'status' => 'SHIPPED',
+                        'cost' => $cost,
                         'raw' => $order,
                     ];
                 }
@@ -494,6 +511,7 @@ class FlashshipService
                     'success' => true,
                     'shipped' => false,
                     'status' => $order['status'] ?? 'PENDING',
+                    'cost' => $cost,
                     'raw' => $order,
                 ];
             }
