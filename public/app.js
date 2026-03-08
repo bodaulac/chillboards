@@ -1723,35 +1723,60 @@ async function syncProducts(teamId) {
 // ─── Product Page: Google Sheet Sync ───
 
 async function initProductGSheetConfig() {
-    // Load team data to get product_sheet_url
     try {
-        if (!window.currentTeamData) {
+        // Load all teams and cache them
+        if (!window.allTeams) {
             const res = await fetch(`${API_BASE}/teams`, { headers: getAuthHeaders() });
             if (res.ok) {
-                const teams = await res.json();
-                if (Array.isArray(teams) && teams.length > 0) {
-                    window.currentTeamData = teams[0];
-                }
+                window.allTeams = await res.json();
             }
         }
-        const team = window.currentTeamData;
+        const teams = window.allTeams || [];
+        const selectEl = document.getElementById('product-team-select');
         const urlInput = document.getElementById('product-gsheet-url');
         const statusEl = document.getElementById('product-gsheet-status');
         const syncBtn = document.getElementById('btn-sync-gsheet');
-        if (!team) {
+
+        if (!teams.length) {
             if (statusEl) statusEl.textContent = 'Create a team in Teams tab first';
             return;
         }
-        if (urlInput) urlInput.value = team.product_sheet_url || '';
-        if (team.product_sheet_url) {
-            statusEl.innerHTML = '<span class="text-emerald-600 font-bold"><i class="fas fa-check-circle mr-1"></i>Configured</span>';
-            syncBtn.classList.remove('hidden');
-        } else {
-            statusEl.textContent = 'Paste your Google Sheet URL and click Save';
-            syncBtn.classList.add('hidden');
+
+        // Build team selector
+        if (selectEl) {
+            selectEl.innerHTML = teams.map(t => `<option value="${t.id}" ${t.product_sheet_url ? 'data-has-sheet="1"' : ''}>${t.name}${t.product_sheet_url ? ' (Sheet configured)' : ''}</option>`).join('');
+            // Default to first team with sheet configured, or first team
+            const sheetTeam = teams.find(t => t.product_sheet_url) || teams[0];
+            selectEl.value = sheetTeam.id;
+            selectEl.onchange = () => updateGSheetUI();
         }
+
+        // Set currentTeamData for sync
+        updateGSheetUI();
     } catch (e) {
         console.error('Failed to load team config:', e);
+    }
+}
+
+function updateGSheetUI() {
+    const teams = window.allTeams || [];
+    const selectEl = document.getElementById('product-team-select');
+    const urlInput = document.getElementById('product-gsheet-url');
+    const statusEl = document.getElementById('product-gsheet-status');
+    const syncBtn = document.getElementById('btn-sync-gsheet');
+
+    const teamId = parseInt(selectEl?.value);
+    const team = teams.find(t => t.id === teamId);
+    window.currentTeamData = team;
+
+    if (!team) return;
+    if (urlInput) urlInput.value = team.product_sheet_url || '';
+    if (team.product_sheet_url) {
+        statusEl.innerHTML = '<span class="text-emerald-600 font-bold"><i class="fas fa-check-circle mr-1"></i>Configured</span>';
+        syncBtn.classList.remove('hidden');
+    } else {
+        statusEl.textContent = 'Paste your Google Sheet URL and click Save';
+        syncBtn.classList.add('hidden');
     }
 }
 
