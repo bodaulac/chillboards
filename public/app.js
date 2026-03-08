@@ -1877,8 +1877,9 @@ async function onDetailSupplierChange() {
     const variantSelect = document.getElementById('detail-variant-select');
     const searchInput = document.getElementById('detail-product-search');
 
-    // Reset search
+    // Reset
     searchInput.value = '';
+    allDetailVariants = [];
     variantSelect.innerHTML = '<option>Loading variants...</option>';
 
     try {
@@ -1887,57 +1888,71 @@ async function onDetailSupplierChange() {
         else if (supplier === 'FJPOD') url = `${API_BASE}/fulfillment/fjpod/skus`;
         else if (supplier === 'Printway') url = `${API_BASE}/fulfillment/printway/products`;
 
+        console.log('[Variants] Fetching from:', url);
         const res = await fetch(url, { headers: getAuthHeaders() });
         const json = await res.json();
+        console.log('[Variants] Response status:', res.status, 'success:', json.success, 'dataType:', typeof json.data, 'isArray:', Array.isArray(json.data));
 
         // API returns { success: true, data: [...] } for Flashship variants
         const items = Array.isArray(json) ? json : (json.data || []);
+        console.log('[Variants] Loaded:', items.length, 'items. First:', items[0]);
 
         if (items && items.length > 0) {
-            allDetailVariants = items; // Store for filtering
-            variantSelect.innerHTML = items.map(v => {
-                const id = v.variant_id || v.id || v.sku;
-                const label = v.variant_id
-                    ? `${v.style || ''} - ${v.color || ''} / ${v.size || ''} (${v.brand || ''})`
-                    : (v.title || v.name || v.sku);
-                return `<option value="${id}">${label}</option>`;
-            }).join('');
+            allDetailVariants = items;
+            // Only show first 200 in dropdown initially (performance)
+            const display = items.slice(0, 200);
+            variantSelect.innerHTML = `<option value="">-- ${items.length} variants loaded, type to filter --</option>` +
+                display.map(v => renderVariantOption(v)).join('');
         } else {
-            allDetailVariants = [];
             variantSelect.innerHTML = '<option value="">No variants found</option>';
         }
     } catch (e) {
+        console.error('[Variants] Load error:', e);
         allDetailVariants = [];
-        variantSelect.innerHTML = '<option value="">Error loading variants</option>';
+        variantSelect.innerHTML = `<option value="">Error: ${e.message}</option>`;
     }
+}
+
+function renderVariantOption(v) {
+    const id = v.variant_id || v.id || v.sku;
+    const label = v.variant_id
+        ? `${v.product_type || ''} ${v.style || ''} - ${v.color || ''} / ${v.size || ''} (${v.brand || ''})`
+        : (v.title || v.name || v.sku);
+    return `<option value="${id}">${label}</option>`;
 }
 
 function filterDetailVariants() {
     const searchTerm = document.getElementById('detail-product-search').value.trim().toLowerCase();
     const variantSelect = document.getElementById('detail-variant-select');
 
-    const renderOption = (v) => {
-        const id = v.variant_id || v.id || v.sku;
-        const label = v.variant_id
-            ? `${v.style || ''} - ${v.color || ''} / ${v.size || ''} (${v.brand || ''})`
-            : (v.title || v.name || v.sku);
-        return `<option value="${id}">${label}</option>`;
-    };
+    console.log('[Filter] searchTerm:', searchTerm, 'allDetailVariants.length:', allDetailVariants.length);
+
+    if (allDetailVariants.length === 0) {
+        variantSelect.innerHTML = '<option value="">Variants not loaded yet - please wait</option>';
+        // Retry loading
+        onDetailSupplierChange();
+        return;
+    }
 
     if (!searchTerm) {
-        variantSelect.innerHTML = allDetailVariants.map(renderOption).join('');
+        const display = allDetailVariants.slice(0, 200);
+        variantSelect.innerHTML = `<option value="">-- ${allDetailVariants.length} variants, type to filter --</option>` +
+            display.map(v => renderVariantOption(v)).join('');
         return;
     }
 
     const filtered = allDetailVariants.filter(v => {
-        const text = `${v.style || ''} ${v.color || ''} ${v.size || ''} ${v.brand || ''} ${v.title || ''} ${v.name || ''} ${v.sku || ''}`.toLowerCase();
+        const text = `${v.product_type || ''} ${v.style || ''} ${v.color || ''} ${v.size || ''} ${v.brand || ''} ${v.title || ''} ${v.name || ''} ${v.sku || ''}`.toLowerCase();
         return text.includes(searchTerm);
     });
 
+    console.log('[Filter] Found:', filtered.length, 'matches');
+
     if (filtered.length > 0) {
-        variantSelect.innerHTML = filtered.map(renderOption).join('');
+        variantSelect.innerHTML = `<option value="">-- ${filtered.length} matches --</option>` +
+            filtered.map(v => renderVariantOption(v)).join('');
     } else {
-        variantSelect.innerHTML = '<option value="">No matching variants</option>';
+        variantSelect.innerHTML = '<option value="">No matching variants for "' + searchTerm + '"</option>';
     }
 }
 
