@@ -641,29 +641,29 @@
                         </div>
                         <div class="flex gap-3">
                             <button onclick="syncWalmartProducts()"
-                                class="btn-gradient px-4 py-2 rounded-xl text-white font-medium shadow-lg shadow-vibrant-primary/20 hover:scale-[1.02] transition-all bg-indigo-600">
-                                <i class="fas fa-sync-alt mr-2"></i> Sync Products
+                                class="px-4 py-2 rounded-xl text-white font-medium shadow-lg hover:scale-[1.02] transition-all bg-blue-600">
+                                <i class="fas fa-store mr-2"></i> Sync Walmart
+                            </button>
+                            <button id="btn-sync-gsheet" onclick="syncProductsFromProducts()"
+                                class="px-4 py-2 rounded-xl text-white font-medium shadow-lg hover:scale-[1.02] transition-all bg-emerald-600 hidden">
+                                <i class="fas fa-file-excel mr-2"></i> Sync Google Sheet
                             </button>
                         </div>
                     </div>
 
-                    <!-- Catalog Banner -->
-                    <div class="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 mb-8">
-                        <div class="flex items-start gap-3">
-                            <i class="fas fa-box-open text-emerald-500 mt-1"></i>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                                <div>
-                                    <h4 class="text-xs font-bold text-emerald-900 uppercase mb-1">Product Management
-                                    </h4>
-                                    <p class="text-xs text-emerald-700">Items are automatically imported from integrated
-                                        stores. Map SKUs for accurate fulfillment.</p>
-                                </div>
-                                <div class="flex items-center justify-end">
-                                    <span
-                                        class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 uppercase">Master
-                                        Catalog Active</span>
-                                </div>
+                    <!-- Google Sheet Sync Config -->
+                    <div id="product-gsheet-config" class="glass-card p-4 mb-6">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <i class="fas fa-file-excel text-emerald-500 text-lg"></i>
+                            <div class="flex-1 min-w-[200px]">
+                                <input type="text" id="product-gsheet-url" placeholder="Paste Google Sheet URL here..."
+                                    class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
                             </div>
+                            <button onclick="saveProductSheetUrl()"
+                                class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all">
+                                <i class="fas fa-save mr-1"></i> Save
+                            </button>
+                            <span id="product-gsheet-status" class="text-xs text-slate-400"></span>
                         </div>
                     </div>
 
@@ -1770,7 +1770,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=2.6"></script>
+    <script src="app.js?v=2.7"></script>
 </body>
 
 </html>

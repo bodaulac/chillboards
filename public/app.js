@@ -109,6 +109,7 @@ function switchTab(tabName) {
             break;
         case 'products':
             loadProducts();
+            initProductGSheetConfig();
             break;
         case 'settings':
             loadStores();
@@ -1719,6 +1720,69 @@ async function syncProducts(teamId) {
     }
 }
 
+// ─── Product Page: Google Sheet Sync ───
+
+async function initProductGSheetConfig() {
+    // Load team data to get product_sheet_url
+    try {
+        if (!window.currentTeamData) {
+            const res = await fetch(`${API_BASE}/teams/my`, { headers: getAuthHeaders() });
+            const team = await res.json();
+            if (!team.error) window.currentTeamData = team;
+        }
+        const team = window.currentTeamData;
+        if (team) {
+            const urlInput = document.getElementById('product-gsheet-url');
+            const statusEl = document.getElementById('product-gsheet-status');
+            const syncBtn = document.getElementById('btn-sync-gsheet');
+            if (urlInput) urlInput.value = team.product_sheet_url || '';
+            if (team.product_sheet_url) {
+                statusEl.innerHTML = '<span class="text-emerald-600 font-bold"><i class="fas fa-check-circle mr-1"></i>Configured</span>';
+                syncBtn.classList.remove('hidden');
+            } else {
+                statusEl.textContent = 'Paste your Google Sheet URL and click Save';
+                syncBtn.classList.add('hidden');
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load team config:', e);
+    }
+}
+
+async function saveProductSheetUrl() {
+    const url = document.getElementById('product-gsheet-url').value.trim();
+    const team = window.currentTeamData;
+    if (!team) {
+        alert('No team found. Please create a team first in the Teams tab.');
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/teams/${team.id}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ product_sheet_url: url })
+        });
+        const data = await res.json();
+        if (data.id || data.success) {
+            window.currentTeamData.product_sheet_url = url;
+            initProductGSheetConfig();
+            alert('Google Sheet URL saved!');
+        } else {
+            alert('Save failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Save failed: ' + e.message);
+    }
+}
+
+async function syncProductsFromProducts() {
+    const team = window.currentTeamData;
+    if (!team || !team.product_sheet_url) {
+        alert('Please configure a Google Sheet URL first.');
+        return;
+    }
+    syncProducts(team.id);
+}
 
 async function viewOrder(id) {
     try {
