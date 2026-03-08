@@ -34,6 +34,7 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{id}/fulfill-bulk', [OrderController::class, 'fulfillBulk']);
         Route::get('fulfillment/fjpod/skus', [OrderController::class, 'getFJPODSKUs']);
         Route::get('fulfillment/flashship/variants', [OrderController::class, 'getFlashshipVariants']);
+        Route::get('fulfillment/flashship/orders', [OrderController::class, 'getFlashshipOrders']);
         Route::post('fulfillment/flashship/sync-tracking', [OrderController::class, 'syncFlashshipTracking']);
         Route::post('fulfillment/fjpod/sync-tracking', [OrderController::class, 'syncFJPODTracking']);
         Route::post('fulfillment/printway/sync-tracking', [OrderController::class, 'syncPrintwayTracking']);

@@ -399,6 +399,14 @@ class OrderController extends Controller
         return response()->json($service->getVariants());
     }
 
+    public function getFlashshipOrders(Request $request)
+    {
+        $service = app(FlashshipService::class);
+        $page = (int) $request->query('page', 1);
+        $limit = (int) $request->query('limit', 50);
+        return response()->json($service->getOrders($page, $limit));
+    }
+
     public function syncFlashshipTracking()
     {
         $orders = Order::whereRaw('LOWER(status) = ?', ['production'])

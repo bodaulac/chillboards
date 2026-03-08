@@ -402,6 +402,37 @@ class FlashshipService
         ];
     }
 
+    /**
+     * List orders from FlashShip API
+     */
+    public function getOrders(int $page = 1, int $limit = 50): array
+    {
+        try {
+            if (!$this->apiToken) throw new \Exception('Flashship API token not configured');
+
+            $response = Http::withToken($this->apiToken)
+                ->timeout(30)
+                ->get("{$this->baseUrl}/orders/list", [
+                    'page' => $page,
+                    'limit' => $limit,
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                // Response may be array directly or wrapped in {data: [...]}
+                $orders = $data['data'] ?? (is_array($data) ? $data : []);
+                return [
+                    'success' => true,
+                    'data' => $orders,
+                ];
+            }
+
+            return ['success' => false, 'error' => $response->body()];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     public function getVariants(): array
     {
         try {

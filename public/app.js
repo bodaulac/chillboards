@@ -2533,6 +2533,68 @@ async function loadFulfillment() {
     }
 }
 
+function switchFulfillTab(tab) {
+    const localPanel = document.getElementById('fulfill-local-panel');
+    const fsPanel = document.getElementById('fulfill-flashship-panel');
+    const btnLocal = document.getElementById('ftab-local');
+    const btnFs = document.getElementById('ftab-flashship');
+
+    if (tab === 'flashship') {
+        localPanel.classList.add('hidden');
+        fsPanel.classList.remove('hidden');
+        btnLocal.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200';
+        btnFs.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white';
+        loadFlashshipOrders();
+    } else {
+        fsPanel.classList.add('hidden');
+        localPanel.classList.remove('hidden');
+        btnFs.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200';
+        btnLocal.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white';
+    }
+}
+
+async function loadFlashshipOrders() {
+    const tbody = document.getElementById('flashship-orders-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading FlashShip orders...</td></tr>';
+
+    try {
+        const res = await fetch(`${API_BASE}/fulfillment/flashship/orders?limit=100`, { headers: getAuthHeaders() });
+        const result = await res.json();
+        const orders = result.data || [];
+
+        if (!orders.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">No orders found on FlashShip.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = orders.map(o => {
+            const status = (o.status || 'unknown').toLowerCase();
+            const statusClass = status === 'completed' || status === 'shipped' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                status === 'processing' || status === 'in_production' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
+                status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                status === 'cancelled' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                'bg-slate-100 text-slate-600 border-slate-200';
+            const tracking = o.tracking_number || '';
+            const carrier = o.tracking_company || '';
+            const created = o.created_at ? new Date(o.created_at).toLocaleDateString() : o.createdAt || '—';
+            const product = o.products?.[0] || {};
+            const prodInfo = product.variant_name || product.product_name || '—';
+
+            return `<tr>
+                <td class="font-mono font-bold text-indigo-600">${o.id || o.flashship_id || '—'}</td>
+                <td class="font-mono text-xs text-slate-700">${o.order_id || '—'}</td>
+                <td class="text-sm text-slate-600 max-w-[200px] truncate" title="${prodInfo}">${prodInfo}</td>
+                <td>${tracking ? `<div class="flex flex-col"><span class="text-xs font-bold text-slate-900">${tracking}</span><span class="text-[10px] text-slate-400 uppercase font-bold">${carrier}</span></div>` : '<span class="text-xs text-slate-400 italic">No Tracking</span>'}</td>
+                <td><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${statusClass}">${status}</span></td>
+                <td class="text-xs text-slate-500">${created}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('FlashShip orders error:', e);
+        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-red-500">Failed to load FlashShip orders.</td></tr>';
+    }
+}
+
 async function syncFlashshipTracking() {
     if (!confirm('Sync tracking for all Flashship orders?')) return;
     try {
