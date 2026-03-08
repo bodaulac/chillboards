@@ -1998,7 +1998,7 @@ function uploadDesignFile(type) {
 
             if (result.success && result.url) {
                 urlInput.value = result.url;
-                showNotification('Upload Complete', `${file.name} uploaded to cloud`, 'success');
+                alert(`Upload OK: ${file.name}`);
             } else {
                 alert('Upload failed: ' + (result.error || 'Unknown error'));
             }
