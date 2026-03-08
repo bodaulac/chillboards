@@ -401,10 +401,32 @@ class OrderController extends Controller
 
     public function getFlashshipOrders(Request $request)
     {
+        // Return local orders fulfilled via Flashship
+        $orders = Order::where('fulfillment->supplier', 'Flashship')
+            ->orderByDesc('updated_at')
+            ->limit(200)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $orders,
+            'total' => $orders->count(),
+        ]);
+    }
+
+    /**
+     * Lookup a single FlashShip order by its FlashShip Order ID.
+     * Returns tracking, status, cost info.
+     */
+    public function lookupFlashshipOrder(Request $request)
+    {
+        $request->validate(['order_id' => 'required|string']);
+
+        $flashshipOrderId = $request->input('order_id');
         $service = app(FlashshipService::class);
-        $page = (int) $request->query('page', 1);
-        $limit = (int) $request->query('limit', 50);
-        return response()->json($service->getOrders($page, $limit));
+        $result = $service->syncTracking($flashshipOrderId);
+
+        return response()->json($result);
     }
 
     public function syncFlashshipTracking()

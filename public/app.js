@@ -2555,47 +2555,129 @@ function switchFulfillTab(tab) {
 
 async function loadFlashshipOrders() {
     const tbody = document.getElementById('flashship-orders-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading FlashShip orders...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading FlashShip orders...</td></tr>';
 
     try {
-        // Load local orders that were fulfilled via Flashship
-        const res = await fetch(`${API_BASE}/orders?limit=200&status=PRODUCTION,SHIPPED,DELIVERED`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_BASE}/fulfillment/flashship/orders`, { headers: getAuthHeaders() });
         const result = await res.json();
-        const allOrders = result.data || [];
-        const orders = allOrders.filter(o => {
-            const f = o.fulfillment || {};
-            return (f.supplier || f.provider || '').toLowerCase() === 'flashship';
-        });
+        const orders = result.data || [];
 
         if (!orders.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">No FlashShip fulfilled orders found. Send orders to produce via FlashShip first.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500">No FlashShip fulfilled orders found. Use "Lookup" above to search by FlashShip Order ID, or fulfill orders via FlashShip first.</td></tr>';
             return;
         }
 
         tbody.innerHTML = orders.map(o => {
             const f = o.fulfillment || {};
             const t = o.tracking_info || {};
-            const status = (o.status || 'PRODUCTION').toUpperCase();
+            const status = (f.status || o.status || 'PENDING').toUpperCase();
             const statusClass = status === 'SHIPPED' || status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                status === 'PRODUCTION' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
+                status === 'PRODUCTION' || status === 'PENDING' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
+                status === 'CANCELLED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
                 'bg-slate-100 text-slate-600 border-slate-200';
-            const tracking = t.number || t.tracking_number || '';
-            const carrier = t.carrier || '';
+            const tracking = f.trackingNumber || t.number || '';
+            const carrier = f.carrier || t.carrier || '';
             const details = o.product_details || {};
-            const created = o.order_date ? new Date(o.order_date).toLocaleDateString() : '—';
+            const created = f.fulfilledAt ? new Date(f.fulfilledAt).toLocaleDateString() : (o.order_date ? new Date(o.order_date).toLocaleDateString() : '—');
+            const fsId = f.supplierOrderId || '—';
 
             return `<tr>
-                <td class="font-mono font-bold text-indigo-600">${f.supplierOrderId || '—'}</td>
-                <td class="font-mono text-xs text-slate-700">${o.order_id}</td>
+                <td class="font-mono font-bold text-indigo-600">${fsId}</td>
+                <td class="font-mono text-xs text-slate-700">${o.order_id || '—'}</td>
                 <td class="text-sm text-slate-600 max-w-[200px] truncate" title="${details.name || ''}">${details.name || '—'}</td>
                 <td>${tracking ? `<div class="flex flex-col"><span class="text-xs font-bold text-slate-900">${tracking}</span><span class="text-[10px] text-slate-400 uppercase font-bold">${carrier}</span></div>` : '<span class="text-xs text-slate-400 italic">No Tracking</span>'}</td>
                 <td><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${statusClass}">${status}</span></td>
                 <td class="text-xs text-slate-500">${created}</td>
+                <td class="text-right">
+                    ${fsId !== '—' ? `<button onclick="lookupFlashshipOrder('${fsId}')" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-200" title="Refresh from FlashShip"><i class="fas fa-sync-alt"></i></button>` : ''}
+                </td>
             </tr>`;
         }).join('');
     } catch (e) {
         console.error('FlashShip orders error:', e);
-        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-red-500">Failed to load FlashShip orders.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-red-500">Failed to load FlashShip orders.</td></tr>';
+    }
+}
+
+async function lookupFlashshipOrder(orderId) {
+    if (!orderId) {
+        orderId = document.getElementById('fs-lookup-id')?.value?.trim();
+    }
+    if (!orderId) { alert('Please enter a FlashShip Order ID'); return; }
+
+    const resultDiv = document.getElementById('fs-lookup-result');
+    resultDiv.classList.remove('hidden');
+    resultDiv.innerHTML = '<div class="p-3 bg-slate-50 rounded-lg text-sm text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i> Looking up order ' + orderId + '...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/fulfillment/flashship/lookup`, {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            const raw = data.raw || {};
+            const tracking = data.tracking_number || raw.tracking_number || '';
+            const carrier = data.carrier || raw.carrier || '';
+            const trackingUrl = data.tracking_url || raw.tracking_url || '';
+            const status = data.status || raw.status || 'unknown';
+            const shipped = data.shipped;
+
+            let html = `<div class="p-4 bg-white border border-slate-200 rounded-lg space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-lg text-indigo-600">${orderId}</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase ${shipped ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${status}</span>
+                </div>`;
+
+            if (tracking) {
+                html += `<div class="flex items-center gap-2">
+                    <span class="text-sm text-slate-500">Tracking:</span>
+                    <span class="font-mono font-bold text-sm">${tracking}</span>
+                    <span class="text-xs text-slate-400 uppercase">${carrier}</span>
+                    ${trackingUrl ? `<a href="${trackingUrl}" target="_blank" class="text-indigo-600 text-xs hover:underline"><i class="fas fa-external-link-alt"></i></a>` : ''}
+                </div>`;
+            } else {
+                html += `<div class="text-sm text-slate-400 italic">No tracking number yet</div>`;
+            }
+
+            // Show raw data details
+            if (raw.total_fee != null) {
+                html += `<div class="text-xs text-slate-500">Cost: $${(raw.total_fee || 0).toFixed(2)} | Shipping: $${(raw.shipping_fee || raw.shipping_cost || 0).toFixed(2)}</div>`;
+            }
+            if (raw.created_at) {
+                html += `<div class="text-xs text-slate-400">Created: ${new Date(raw.created_at).toLocaleString()}</div>`;
+            }
+
+            html += `</div>`;
+            resultDiv.innerHTML = html;
+        } else {
+            resultDiv.innerHTML = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"><i class="fas fa-exclamation-circle mr-1"></i> ${data.error || 'Order not found'}</div>`;
+        }
+    } catch (e) {
+        console.error('Lookup error:', e);
+        resultDiv.innerHTML = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"><i class="fas fa-exclamation-circle mr-1"></i> Lookup failed: ${e.message}</div>`;
+    }
+}
+
+async function syncAllFlashshipTracking() {
+    if (!confirm('Sync tracking for all FlashShip orders in PRODUCTION status?')) return;
+    try {
+        const res = await fetch(`${API_BASE}/fulfillment/flashship/sync-tracking`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`Tracking synced! ${data.count} order(s) updated.`);
+            loadFlashshipOrders();
+            loadFulfillment();
+        } else {
+            alert('Sync failed: ' + (data.message || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Sync error: ' + e.message);
     }
 }
 
