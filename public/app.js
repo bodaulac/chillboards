@@ -1888,13 +1888,20 @@ async function onDetailSupplierChange() {
         else if (supplier === 'Printway') url = `${API_BASE}/fulfillment/printway/products`;
 
         const res = await fetch(url, { headers: getAuthHeaders() });
-        const items = await res.json();
+        const json = await res.json();
+
+        // API returns { success: true, data: [...] } for Flashship variants
+        const items = Array.isArray(json) ? json : (json.data || []);
 
         if (items && items.length > 0) {
             allDetailVariants = items; // Store for filtering
-            variantSelect.innerHTML = items.map(v => `
-                <option value="${v.id || v.sku}">${v.title || v.name || v.sku}</option>
-            `).join('');
+            variantSelect.innerHTML = items.map(v => {
+                const id = v.variant_id || v.id || v.sku;
+                const label = v.variant_id
+                    ? `${v.style || ''} - ${v.color || ''} / ${v.size || ''} (${v.brand || ''})`
+                    : (v.title || v.name || v.sku);
+                return `<option value="${id}">${label}</option>`;
+            }).join('');
         } else {
             allDetailVariants = [];
             variantSelect.innerHTML = '<option value="">No variants found</option>';
@@ -1909,24 +1916,26 @@ function filterDetailVariants() {
     const searchTerm = document.getElementById('detail-product-search').value.trim().toLowerCase();
     const variantSelect = document.getElementById('detail-variant-select');
 
+    const renderOption = (v) => {
+        const id = v.variant_id || v.id || v.sku;
+        const label = v.variant_id
+            ? `${v.style || ''} - ${v.color || ''} / ${v.size || ''} (${v.brand || ''})`
+            : (v.title || v.name || v.sku);
+        return `<option value="${id}">${label}</option>`;
+    };
+
     if (!searchTerm) {
-        // Show all if no search term
-        variantSelect.innerHTML = allDetailVariants.map(v => `
-            <option value="${v.id || v.sku}">${v.title || v.name || v.sku}</option>
-        `).join('');
+        variantSelect.innerHTML = allDetailVariants.map(renderOption).join('');
         return;
     }
 
     const filtered = allDetailVariants.filter(v => {
-        const title = (v.title || v.name || v.sku || '').toLowerCase();
-        const sku = (v.sku || '').toLowerCase();
-        return title.includes(searchTerm) || sku.includes(searchTerm);
+        const text = `${v.style || ''} ${v.color || ''} ${v.size || ''} ${v.brand || ''} ${v.title || ''} ${v.name || ''} ${v.sku || ''}`.toLowerCase();
+        return text.includes(searchTerm);
     });
 
     if (filtered.length > 0) {
-        variantSelect.innerHTML = filtered.map(v => `
-            <option value="${v.id || v.sku}">${v.title || v.name || v.sku}</option>
-        `).join('');
+        variantSelect.innerHTML = filtered.map(renderOption).join('');
     } else {
         variantSelect.innerHTML = '<option value="">No matching variants</option>';
     }
@@ -1969,6 +1978,11 @@ async function handleSendToProduce() {
     // Validate required fields
     if (!designUrl || !mockupUrl || !printLocation) {
         alert('Please fill in all required fields: Design URL, Mockup URL, and Print Location');
+        return;
+    }
+
+    if (supplier === 'Flashship' && !variant) {
+        alert('Please select a product variant for Flashship');
         return;
     }
 

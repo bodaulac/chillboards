@@ -150,25 +150,22 @@ class OrderController extends Controller
      */
     public function fulfill(Request $request, $id)
     {
-        $order = Order::where('order_id', $id)->firstOrFail();
-        
+        $order = Order::where('order_id', $id)->orWhere('id', $id)->firstOrFail();
+
         $request->validate([
             'supplier' => 'required|in:Flashship,Printway,FJPOD'
         ]);
-        
-        $supplier = $request->input('supplier');
-        $result = ['success' => false, 'error' => 'Unknown supplier'];
 
-        if ($supplier === 'Flashship') {
-            $service = app(FlashshipService::class);
-            $result = $service->createOrder(array_merge($order->toArray(), $request->all()));
-        } elseif ($supplier === 'Printway') {
-            $service = app(PrintwayService::class);
-            $result = $service->createOrder(array_merge($order->toArray(), $request->all()));
-        } elseif ($supplier === 'FJPOD') {
-            $service = app(FJPODService::class);
-            $result = $service->createOrder(array_merge($order->toArray(), $request->all()));
-        }
+        $supplier = $request->input('supplier');
+
+        // Map Order model fields to the format expected by fulfillment services
+        $orderData = $this->buildFulfillmentPayload($order, $request);
+
+        $result = match ($supplier) {
+            'Flashship' => app(FlashshipService::class)->createOrder($orderData),
+            'Printway'  => app(PrintwayService::class)->createOrder($orderData),
+            'FJPOD'     => app(FJPODService::class)->createOrder($orderData),
+        };
 
         if ($result['success'] ?? false) {
             $fulfillment = $order->fulfillment ?? [];
@@ -176,15 +173,13 @@ class OrderController extends Controller
             $fulfillment['supplierOrderId'] = $result['orderId'] ?? $result['flashshipOrderId'] ?? $result['fjpodOrderId'] ?? null;
             $fulfillment['status'] = 'PENDING';
             $fulfillment['fulfilledAt'] = now()->toIso8601String();
-            
-            // Capture specific metadata if provided
+
             if ($request->has('sku')) $fulfillment['selectedSku'] = $request->input('sku');
             if ($request->has('variant_id')) $fulfillment['selectedVariantId'] = $request->input('variant_id');
-            
+
             $order->fulfillment = $fulfillment;
-            $order->status = 'production';
-            
-            // Add timeline entry
+            $order->status = 'PRODUCTION';
+
             $timeline = $order->timeline ?? [];
             $timeline[] = [
                 'event' => "Sent to {$supplier} for fulfillment",
@@ -192,9 +187,8 @@ class OrderController extends Controller
                 'user' => $request->user()?->name ?? 'System'
             ];
             $order->timeline = $timeline;
-            
             $order->save();
-            
+
             return response()->json([
                 'success' => true,
                 'message' => "Order sent to {$supplier}",
@@ -210,12 +204,69 @@ class OrderController extends Controller
     }
 
     /**
+     * Build the fulfillment payload from Order model + request data.
+     * Maps Order model field names to what FlashshipService/FJPODService/PrintwayService expect.
+     */
+    private function buildFulfillmentPayload(Order $order, Request $request): array
+    {
+        $cust = $order->customer_details ?? [];
+        $prod = $order->product_details ?? [];
+
+        // Split customer name into first/last (Walmart stores full name)
+        $nameParts = explode(' ', trim($cust['name'] ?? 'Customer'), 2);
+        $firstName = $cust['firstName'] ?? $nameParts[0] ?? 'Customer';
+        $lastName  = $cust['lastName'] ?? ($nameParts[1] ?? '');
+
+        return [
+            'orderId'  => $order->order_id,
+            'order_id' => $order->order_id,
+            'customer' => [
+                'name'      => $cust['name'] ?? $firstName,
+                'firstName' => $firstName,
+                'lastName'  => $lastName,
+                'email'     => $cust['email'] ?? '',
+                'phone'     => $cust['phone'] ?? '',
+                'address'   => [
+                    'line1'   => $cust['address1'] ?? $cust['address']['line1'] ?? '',
+                    'line2'   => $cust['address2'] ?? $cust['address']['line2'] ?? '',
+                    'city'    => $cust['city'] ?? $cust['address']['city'] ?? '',
+                    'state'   => $cust['state'] ?? $cust['address']['state'] ?? '',
+                    'zip'     => $cust['zip'] ?? $cust['address']['zip'] ?? '',
+                    'country' => $cust['country'] ?? $cust['address']['country'] ?? 'US',
+                ],
+                'address1' => $cust['address1'] ?? $cust['address']['line1'] ?? '',
+                'address2' => $cust['address2'] ?? $cust['address']['line2'] ?? '',
+                'city'     => $cust['city'] ?? $cust['address']['city'] ?? '',
+                'state'    => $cust['state'] ?? $cust['address']['state'] ?? '',
+                'zip'      => $cust['zip'] ?? $cust['address']['zip'] ?? '',
+                'country'  => $cust['country'] ?? $cust['address']['country'] ?? 'US',
+            ],
+            'product' => [
+                'sku'       => $prod['sku'] ?? '',
+                'name'      => $prod['name'] ?? '',
+                'quantity'  => (int) ($prod['quantity'] ?? 1),
+                'variantId' => $request->input('variant_id'),
+            ],
+            'design'              => $request->input('design', []),
+            'variant_id'          => $request->input('variant_id'),
+            'design_url'          => $request->input('design_url'),
+            'mockup_url'          => $request->input('mockup_url'),
+            'print_location'      => $request->input('print_location', 'Front'),
+            'printType'           => $request->input('print_type', 'DTG'),
+            'specialPrint'        => $request->has('special_print_areas') ? 1 : null,
+            'special_print_areas' => $request->input('special_print_areas', []),
+            'printLocations'      => [$request->input('print_location', 'Front')],
+            'shipment'            => 1,
+        ];
+    }
+
+    /**
      * Bulk fulfill order with multiple items
      */
     public function fulfillBulk(Request $request, $id)
     {
-        $order = Order::where('order_id', $id)->firstOrFail();
-        
+        $order = Order::where('order_id', $id)->orWhere('id', $id)->firstOrFail();
+
         $request->validate([
             'supplier' => 'required|in:Flashship,Printway,FJPOD',
             'items' => 'required|array|min:1',
@@ -224,26 +275,31 @@ class OrderController extends Controller
             'printType' => 'nullable|integer|in:1,2,3',
             'specialPrint' => 'nullable|integer|in:0,1'
         ]);
-        
+
         $supplier = $request->input('supplier');
         $items = $request->input('items');
-        
-        // Prepare order data for bulk fulfillment
+        $cust = $order->customer_details ?? [];
+
+        // Split name for Walmart-style flat customer data
+        $nameParts = explode(' ', trim($cust['name'] ?? 'Customer'), 2);
+        $firstName = $cust['firstName'] ?? $nameParts[0] ?? 'Customer';
+        $lastName  = $cust['lastName'] ?? ($nameParts[1] ?? '');
+
         $orderData = [
             'orderId' => $order->order_id,
             'order_id' => $order->order_id,
             'customer' => [
-                'firstName' => $order->customer_details['firstName'] ?? 'Customer',
-                'lastName' => $order->customer_details['lastName'] ?? 'Name',
-                'email' => $order->customer_details['email'] ?? '',
-                'phone' => $order->customer_details['phone'] ?? '',
-                'address' => [
-                    'line1' => $order->customer_details['address']['line1'] ?? '',
-                    'line2' => $order->customer_details['address']['line2'] ?? '',
-                    'city' => $order->customer_details['address']['city'] ?? '',
-                    'state' => $order->customer_details['address']['state'] ?? '',
-                    'zip' => $order->customer_details['address']['zip'] ?? '',
-                    'country' => $order->customer_details['address']['country'] ?? 'US'
+                'firstName' => $firstName,
+                'lastName'  => $lastName,
+                'email'     => $cust['email'] ?? '',
+                'phone'     => $cust['phone'] ?? '',
+                'address'   => [
+                    'line1'   => $cust['address1'] ?? $cust['address']['line1'] ?? '',
+                    'line2'   => $cust['address2'] ?? $cust['address']['line2'] ?? '',
+                    'city'    => $cust['city'] ?? $cust['address']['city'] ?? '',
+                    'state'   => $cust['state'] ?? $cust['address']['state'] ?? '',
+                    'zip'     => $cust['zip'] ?? $cust['address']['zip'] ?? '',
+                    'country' => $cust['country'] ?? $cust['address']['country'] ?? 'US',
                 ]
             ],
             'products' => $items,
@@ -253,23 +309,23 @@ class OrderController extends Controller
             'fjpodPrintSize' => $request->input('fjpodPrintSize', '12x16'),
             'printTech' => $request->input('printTech', 'DTG Print')
         ];
-        
+
         // For Printway, transform to lineItems format
         if ($supplier === 'Printway') {
             $orderData = [
                 'externalId' => $order->order_id,
                 'orderId' => $order->order_id,
                 'shippingAddress' => [
-                    'name' => ($order->customer_details['firstName'] ?? 'Customer') . ' ' . ($order->customer_details['lastName'] ?? 'Name'),
-                    'email' => $order->customer_details['email'] ?? 'noreply@printway.io',
-                    'phone' => $order->customer_details['phone'] ?? '',
-                    'address1' => $order->customer_details['address']['line1'] ?? '',
-                    'address2' => $order->customer_details['address']['line2'] ?? '',
-                    'city' => $order->customer_details['address']['city'] ?? '',
-                    'province' => $order->customer_details['address']['state'] ?? '',
-                    'state' => $order->customer_details['address']['state'] ?? '',
-                    'zip' => $order->customer_details['address']['zip'] ?? '',
-                    'countryCode' => $order->customer_details['address']['country'] ?? 'US'
+                    'name'        => "{$firstName} {$lastName}",
+                    'email'       => $cust['email'] ?? 'noreply@printway.io',
+                    'phone'       => $cust['phone'] ?? '',
+                    'address1'    => $cust['address1'] ?? $cust['address']['line1'] ?? '',
+                    'address2'    => $cust['address2'] ?? $cust['address']['line2'] ?? '',
+                    'city'        => $cust['city'] ?? $cust['address']['city'] ?? '',
+                    'province'    => $cust['state'] ?? $cust['address']['state'] ?? '',
+                    'state'       => $cust['state'] ?? $cust['address']['state'] ?? '',
+                    'zip'         => $cust['zip'] ?? $cust['address']['zip'] ?? '',
+                    'countryCode' => $cust['country'] ?? $cust['address']['country'] ?? 'US',
                 ],
                 'lineItems' => array_map(function($item) {
                     return [
@@ -285,14 +341,13 @@ class OrderController extends Controller
                 }, $items)
             ];
         }
-        
-        // Call appropriate service
+
         $result = match($supplier) {
             'Flashship' => app(FlashshipService::class)->createOrder($orderData),
             'FJPOD' => app(FJPODService::class)->createOrder($orderData),
             'Printway' => app(PrintwayService::class)->createOrder($orderData),
         };
-        
+
         if ($result['success'] ?? false) {
             $fulfillment = $order->fulfillment ?? [];
             $fulfillment['supplier'] = $supplier;
@@ -304,11 +359,10 @@ class OrderController extends Controller
                 'sku' => $i['sku'],
                 'quantity' => $i['quantity']
             ], $items);
-            
+
             $order->fulfillment = $fulfillment;
-            $order->status = 'production';
-            
-            // Add timeline entry
+            $order->status = 'PRODUCTION';
+
             $timeline = $order->timeline ?? [];
             $timeline[] = [
                 'event' => "Bulk order (" . count($items) . " items) sent to {$supplier}",
@@ -316,9 +370,8 @@ class OrderController extends Controller
                 'user' => $request->user()?->name ?? 'System'
             ];
             $order->timeline = $timeline;
-            
             $order->save();
-            
+
             return response()->json([
                 'success' => true,
                 'message' => "Bulk order (" . count($items) . " items) sent to {$supplier}",
@@ -348,7 +401,7 @@ class OrderController extends Controller
 
     public function syncFlashshipTracking()
     {
-        $orders = Order::where('status', 'production')
+        $orders = Order::whereRaw('LOWER(status) = ?', ['production'])
             ->where('fulfillment->supplier', 'Flashship')
             ->get();
 
@@ -366,8 +419,8 @@ class OrderController extends Controller
                     $fulfillment['trackingNumber'] = $status['tracking_number'];
                     $fulfillment['carrier'] = $status['carrier'];
                     $order->fulfillment = $fulfillment;
-                    $order->status = 'shipped';
-                    
+                    $order->status = 'SHIPPED';
+
                     $tracking = $order->tracking_info ?? [];
                     $tracking['number'] = $status['tracking_number'];
                     $tracking['carrier'] = $status['carrier'];
@@ -391,7 +444,7 @@ class OrderController extends Controller
 
     public function syncFJPODTracking()
     {
-        $orders = Order::where('status', 'production')
+        $orders = Order::whereRaw('LOWER(status) = ?', ['production'])
             ->where('fulfillment->supplier', 'FJPOD')
             ->get();
 
@@ -409,7 +462,7 @@ class OrderController extends Controller
                     $fulfillment['trackingNumber'] = $status['tracking_number'];
                     $fulfillment['carrier'] = $status['carrier'];
                     $order->fulfillment = $fulfillment;
-                    $order->status = 'shipped';
+                    $order->status = 'SHIPPED';
 
                     $tracking = $order->tracking_info ?? [];
                     $tracking['number'] = $status['tracking_number'];
@@ -434,7 +487,7 @@ class OrderController extends Controller
 
     public function syncPrintwayTracking()
     {
-        $orders = Order::where('status', 'production')
+        $orders = Order::whereRaw('LOWER(status) = ?', ['production'])
             ->where('fulfillment->supplier', 'Printway')
             ->get();
 
