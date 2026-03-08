@@ -66,6 +66,10 @@ Route::prefix('v1')->group(function () {
 
         // File Upload
         Route::post('upload', [App\Http\Controllers\Api\UploadController::class, 'upload']);
+
+        // Design Mappings
+        Route::get('design-mappings/{sku}', [App\Http\Controllers\Api\DesignMappingController::class, 'show']);
+        Route::post('design-mappings', [App\Http\Controllers\Api\DesignMappingController::class, 'store']);
     });
 });
 

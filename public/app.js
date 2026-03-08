@@ -1802,9 +1802,6 @@ function renderOrderDetail(order) {
         const img = item.MOCKUPURL || details.mockup_url || 'https://via.placeholder.com/80';
         const sku = item.SKU || details.sku || item.sku || 'N/A';
         const qty = item.Quantity || details.quantity || item.quantity || 1;
-
-        const front = item.designUrl || 'https://via.placeholder.com/150?text=Front';
-        const back = item.backDesignUrl || 'https://via.placeholder.com/150?text=Back';
         const price = item.price || details.price || 0;
         const total = (price * qty).toFixed(2);
 
@@ -1820,27 +1817,49 @@ function renderOrderDetail(order) {
                         </div>
                     </div>
                 </td>
-                <td>
-                    <div class="design-preview-grid">
-                        <div class="design-thumb-card" onclick="editDesign(${item.id}, 'front')">
-                            <img src="${front}">
-                            <span class="design-thumb-label">Front</span>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <div class="design-preview-grid">
-                        <div class="design-thumb-card" onclick="editDesign(${item.id}, 'back')">
-                            <img src="${back}">
-                            <span class="design-thumb-label">Back</span>
-                        </div>
-                    </div>
-                </td>
+                <td id="design-front-td-${index}"><span class="text-xs text-slate-400">Loading...</span></td>
+                <td id="design-back-td-${index}"><span class="text-xs text-slate-400">—</span></td>
                 <td class="font-bold text-slate-900">${qty}</td>
                 <td class="text-right font-bold text-slate-900">$${total}</td>
             </tr>
         `;
     }).join('');
+
+    // Fetch design mapping and fill thumbnails + auto-fill inputs
+    const orderSku = getOrderSku(order);
+    if (orderSku) {
+        fetchDesignMapping(orderSku).then(mapping => {
+            if (!mapping) {
+                // No mapping: show placeholder
+                lineItems.forEach((_, i) => {
+                    document.getElementById(`design-front-td-${i}`).innerHTML = '<span class="text-xs text-slate-400">—</span>';
+                });
+                return;
+            }
+            // Show thumbnails in product table
+            lineItems.forEach((_, i) => {
+                const frontTd = document.getElementById(`design-front-td-${i}`);
+                const backTd = document.getElementById(`design-back-td-${i}`);
+                if (frontTd && mapping.design_url) {
+                    frontTd.innerHTML = `<a href="${mapping.design_url}" target="_blank"><img src="${mapping.design_url}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\\'text-xs text-slate-400\\'>File</span>'"></a>`;
+                } else if (frontTd) {
+                    frontTd.innerHTML = '<span class="text-xs text-slate-400">—</span>';
+                }
+                if (backTd && mapping.design_url_2) {
+                    backTd.innerHTML = `<a href="${mapping.design_url_2}" target="_blank"><img src="${mapping.design_url_2}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\\'text-xs text-slate-400\\'>File</span>'"></a>`;
+                }
+            });
+            // Auto-fill design/mockup URL inputs (only if empty)
+            const designInput = document.getElementById('detail-design-url');
+            const mockupInput = document.getElementById('detail-mockup-url');
+            if (designInput && !designInput.value && mapping.design_url) {
+                designInput.value = mapping.design_url;
+            }
+            if (mockupInput && !mockupInput.value && mapping.mockup_url) {
+                mockupInput.value = mapping.mockup_url;
+            }
+        });
+    }
 
     // Totals
     const totalVal = order.Total || order.total || '0.00';
@@ -1956,6 +1975,33 @@ function filterDetailVariants() {
     }
 }
 
+// ─── Design Mapping helpers ───
+async function fetchDesignMapping(sku) {
+    if (!sku) return null;
+    try {
+        const res = await fetch(`${API_BASE}/design-mappings/${encodeURIComponent(sku)}`, { headers: getAuthHeaders() });
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json.success ? json.data : null;
+    } catch { return null; }
+}
+
+async function saveDesignMapping(sku, fields) {
+    if (!sku) return;
+    try {
+        await fetch(`${API_BASE}/design-mappings`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ base_sku: sku, ...fields })
+        });
+    } catch (e) { console.error('Save design mapping error:', e); }
+}
+
+function getOrderSku(order) {
+    const details = order.product_details || {};
+    return details.sku || order.SKU || order.sku || '';
+}
+
 function uploadDesignFile(type) {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1998,6 +2044,12 @@ function uploadDesignFile(type) {
 
             if (result.success && result.url) {
                 urlInput.value = result.url;
+                // Auto-save design mapping by SKU
+                const sku = getOrderSku(window.currentViewingOrder || {});
+                if (sku) {
+                    const field = type === 'mockup' ? 'mockup_url' : 'design_url';
+                    saveDesignMapping(sku, { [field]: result.url });
+                }
                 alert(`Upload OK: ${file.name}`);
             } else {
                 alert('Upload failed: ' + (result.error || 'Unknown error'));
@@ -2065,6 +2117,14 @@ async function handleSendToProduce() {
             });
 
             if (res.ok) {
+                // Save design mapping for future orders with same SKU
+                const sku = getOrderSku(order);
+                if (sku && (designUrl || mockupUrl)) {
+                    const mapFields = {};
+                    if (designUrl) mapFields.design_url = designUrl;
+                    if (mockupUrl) mapFields.mockup_url = mockupUrl;
+                    saveDesignMapping(sku, mapFields);
+                }
                 alert('Sent to production successfully!');
                 viewOrder(order.id); // Refresh
             } else {
