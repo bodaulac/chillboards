@@ -1959,21 +1959,56 @@ function filterDetailVariants() {
 function uploadDesignFile(type) {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*,application/pdf';
+    input.accept = 'image/*,application/pdf,.svg,.dst,.zip';
 
-    input.onchange = e => {
+    input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // In a real app, you'd upload to S3/Firebase here
-        showNotification('Uploading', `Uploading ${file.name}...`, 'info');
+        // Validate file size (50MB max)
+        if (file.size > 50 * 1024 * 1024) {
+            alert('File too large. Max 50MB.');
+            return;
+        }
 
-        // Simulate upload delay
-        setTimeout(() => {
-            const mockUrl = `https://storage.chillboard.io/uploads/${Date.now()}_${file.name}`;
-            document.getElementById(`detail-${type}-url`).value = mockUrl;
-            showNotification('Success', 'File uploaded successfully (Mock)', 'success');
-        }, 1500);
+        const folder = type === 'mockup' ? 'mockups' : 'designs';
+        const urlInput = document.getElementById(`detail-${type}-url`);
+        const uploadBtn = urlInput.parentElement.querySelector('button');
+        const originalBtnHtml = uploadBtn.innerHTML;
+
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', folder);
+
+            const token = getToken();
+            const res = await fetch(`${API_BASE}/upload`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            const result = await res.json();
+
+            if (result.success && result.url) {
+                urlInput.value = result.url;
+                showNotification('Upload Complete', `${file.name} uploaded to cloud`, 'success');
+            } else {
+                alert('Upload failed: ' + (result.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Upload error:', err);
+            alert('Upload failed: ' + err.message);
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = originalBtnHtml;
+        }
     };
 
     input.click();

@@ -63,6 +63,9 @@ Route::prefix('v1')->group(function () {
         // Analytics & Statistics
         Route::get('analytics/dashboard', [AnalyticsController::class, 'dashboard']);
         Route::get('statistics', [AnalyticsController::class, 'statistics']);
+
+        // File Upload
+        Route::post('upload', [App\Http\Controllers\Api\UploadController::class, 'upload']);
     });
 });
 
