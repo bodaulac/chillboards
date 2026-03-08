@@ -415,16 +415,77 @@ class OrderController extends Controller
     }
 
     /**
-     * Lookup a single FlashShip order by its FlashShip Order ID.
-     * Returns tracking, status, cost info.
+     * Lookup FlashShip order by FlashShip Order ID or by local Order ID (PO number).
+     * If input looks like a PO/Walmart order ID, search local DB first for the FlashShip mapping.
      */
     public function lookupFlashshipOrder(Request $request)
     {
         $request->validate(['order_id' => 'required|string']);
 
-        $flashshipOrderId = $request->input('order_id');
+        $input = trim($request->input('order_id'));
         $service = app(FlashshipService::class);
-        $result = $service->syncTracking($flashshipOrderId);
+
+        // Check if input looks like a PO/system order ID (contains digits, dashes, or WAL- prefix)
+        $isPONumber = preg_match('/^\d/', $input) || str_starts_with(strtoupper($input), 'WAL-');
+
+        if ($isPONumber) {
+            // Search local DB for this order ID → get FlashShip supplier order ID
+            $order = Order::where('order_id', $input)->first();
+            if (!$order && !str_starts_with(strtoupper($input), 'WAL-')) {
+                // Try with WAL- prefix
+                $order = Order::where('order_id', 'WAL-' . $input)->first();
+            }
+            if (!$order) {
+                // Try partial match (order_id contains the input)
+                $order = Order::where('order_id', 'LIKE', '%' . $input . '%')
+                    ->where('fulfillment->supplier', 'Flashship')
+                    ->first();
+            }
+
+            if ($order) {
+                $fulfillment = $order->fulfillment ?? [];
+                $flashshipId = $fulfillment['supplierOrderId'] ?? null;
+
+                if ($flashshipId) {
+                    // Found FlashShip ID, lookup on API
+                    $result = $service->syncTracking($flashshipId);
+                    $result['local_order'] = [
+                        'order_id' => $order->order_id,
+                        'status' => $order->status,
+                        'flashship_id' => $flashshipId,
+                    ];
+                    return response()->json($result);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'error' => "Order {$order->order_id} found but has no FlashShip ID. Supplier: " . ($fulfillment['supplier'] ?? 'N/A'),
+                    'local_order' => [
+                        'order_id' => $order->order_id,
+                        'status' => $order->status,
+                        'supplier' => $fulfillment['supplier'] ?? null,
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => "No order found with ID: {$input}",
+            ]);
+        }
+
+        // Input is a FlashShip Order ID → lookup directly on API
+        $result = $service->syncTracking($input);
+
+        // Also check if any local order has this FlashShip ID
+        $localOrder = Order::where('fulfillment->supplierOrderId', $input)->first();
+        if ($localOrder) {
+            $result['local_order'] = [
+                'order_id' => $localOrder->order_id,
+                'status' => $localOrder->status,
+                'flashship_id' => $input,
+            ];
+        }
 
         return response()->json($result);
     }

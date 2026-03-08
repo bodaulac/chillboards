@@ -2603,11 +2603,11 @@ async function lookupFlashshipOrder(orderId) {
     if (!orderId) {
         orderId = document.getElementById('fs-lookup-id')?.value?.trim();
     }
-    if (!orderId) { alert('Please enter a FlashShip Order ID'); return; }
+    if (!orderId) { alert('Please enter a FlashShip Order ID or PO Number'); return; }
 
     const resultDiv = document.getElementById('fs-lookup-result');
     resultDiv.classList.remove('hidden');
-    resultDiv.innerHTML = '<div class="p-3 bg-slate-50 rounded-lg text-sm text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i> Looking up order ' + orderId + '...</div>';
+    resultDiv.innerHTML = '<div class="p-3 bg-slate-50 rounded-lg text-sm text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i> Looking up ' + orderId + '...</div>';
 
     try {
         const res = await fetch(`${API_BASE}/fulfillment/flashship/lookup`, {
@@ -2619,6 +2619,7 @@ async function lookupFlashshipOrder(orderId) {
 
         if (data.success) {
             const raw = data.raw || {};
+            const local = data.local_order || {};
             const tracking = data.tracking_number || raw.tracking_number || '';
             const carrier = data.carrier || raw.carrier || '';
             const trackingUrl = data.tracking_url || raw.tracking_url || '';
@@ -2627,9 +2628,16 @@ async function lookupFlashshipOrder(orderId) {
 
             let html = `<div class="p-4 bg-white border border-slate-200 rounded-lg space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="font-bold text-lg text-indigo-600">${orderId}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-lg text-indigo-600">${local.flashship_id || orderId}</span>
+                        ${local.order_id ? `<span class="text-xs text-slate-400">← ${local.order_id}</span>` : ''}
+                    </div>
                     <span class="px-3 py-1 rounded-full text-xs font-bold uppercase ${shipped ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${status}</span>
                 </div>`;
+
+            if (local.order_id) {
+                html += `<div class="text-xs text-slate-500"><i class="fas fa-link mr-1"></i> Local Order: <span class="font-mono font-bold">${local.order_id}</span> (${local.status || '—'})</div>`;
+            }
 
             if (tracking) {
                 html += `<div class="flex items-center gap-2">
@@ -2642,7 +2650,6 @@ async function lookupFlashshipOrder(orderId) {
                 html += `<div class="text-sm text-slate-400 italic">No tracking number yet</div>`;
             }
 
-            // Show raw data details
             if (raw.total_fee != null) {
                 html += `<div class="text-xs text-slate-500">Cost: $${(raw.total_fee || 0).toFixed(2)} | Shipping: $${(raw.shipping_fee || raw.shipping_cost || 0).toFixed(2)}</div>`;
             }
@@ -2653,7 +2660,15 @@ async function lookupFlashshipOrder(orderId) {
             html += `</div>`;
             resultDiv.innerHTML = html;
         } else {
-            resultDiv.innerHTML = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"><i class="fas fa-exclamation-circle mr-1"></i> ${data.error || 'Order not found'}</div>`;
+            // Show error with local order info if available
+            const local = data.local_order || {};
+            let errHtml = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <i class="fas fa-exclamation-circle mr-1"></i> ${data.error || 'Order not found'}`;
+            if (local.order_id) {
+                errHtml += `<div class="mt-1 text-xs">Local order: <span class="font-mono font-bold">${local.order_id}</span> | Status: ${local.status || '—'} | Supplier: ${local.supplier || '—'}</div>`;
+            }
+            errHtml += `</div>`;
+            resultDiv.innerHTML = errHtml;
         }
     } catch (e) {
         console.error('Lookup error:', e);
